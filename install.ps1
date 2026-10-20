@@ -1,4 +1,4 @@
-param([string]$FeedRoot=$PSScriptRoot,[string]$InstallRoot=(Join-Path $env:LOCALAPPDATA 'YingceCanvas'),[switch]$NoShortcut,[switch]$NoLaunch)
+﻿param([string]$FeedRoot=$PSScriptRoot,[string]$InstallRoot=(Join-Path $env:LOCALAPPDATA 'YingceCanvas'),[switch]$NoShortcut,[switch]$NoLaunch)
 $ErrorActionPreference='Stop'
 $online=$FeedRoot -match '^https://'
 if($FeedRoot -match '^https?://' -and !$online){throw 'Online updates require HTTPS'}
