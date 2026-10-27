@@ -82,6 +82,12 @@ foreach($item in $releaseInfo.files){
     if((Get-ReleaseFileHash -LiteralPath $target).Hash -ne $item.sha256){throw 'Installed file checksum mismatch'}
 }
 Write-Progress -Activity 'Installing release files' -Completed
+# Restore the captured prompt templates and protocols before activating this version.
+if ($releaseInfo.portableState) {
+    if ($releaseInfo.portableState -ne 'backend/desktop-state/apply-state.mjs') {throw 'Invalid state migration entry'}
+    & (Join-Path $versionRoot 'runtime/node/node.exe') (Join-Path $versionRoot $releaseInfo.portableState) --install-root $InstallRoot
+    if ($LASTEXITCODE -ne 0) {throw 'Desktop prompt/protocol migration failed. Previous version remains selected.'}
+}
 # Keep a local copy of the trusted installer; updates never execute a downloaded script.
 $installerPath=Join-Path $InstallRoot 'install.ps1'
 if([IO.Path]::GetFullPath($PSCommandPath) -ne [IO.Path]::GetFullPath($installerPath)){Copy-Item -LiteralPath $PSCommandPath -Destination $installerPath -Force}
