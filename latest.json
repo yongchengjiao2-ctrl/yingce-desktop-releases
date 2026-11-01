@@ -1,5 +1,5 @@
 {
-  "version": "1.3.15",
+  "version": "1.3.16",
   "files": [
     {
       "path": "app/chrome_100_percent.pak",
@@ -329,7 +329,7 @@
     {
       "path": "app/resources/app.asar",
       "size": 328850,
-      "sha256": "77561035b3d63dd3d7b5a89a91bfb8b7e8d6f3e0d71e364769eef603bc1442cd"
+      "sha256": "353a3a53ae81b5aaedcca8fdf572055267754d6c07bcb3d7f9cb0e8e7d735e30"
     },
     {
       "path": "app/resources/breeze-compat.cjs",
@@ -125807,14 +125807,34 @@
       "sha256": "5273c4e29cf69275327bed6135a91d897b27155ad57d53f915a0092e44300b17"
     },
     {
+      "path": "backend/desktop-state/channel-presets.json",
+      "size": 289,
+      "sha256": "ad8acad3128366092c099c9dbfdce6ee503de0f47abd0cd90f2463a1eee4a070"
+    },
+    {
       "path": "backend/desktop-state/database-state.json",
       "size": 1730224,
-      "sha256": "12efd50ed0473106ec4cacc195f95cfafb465bda696185d0f3cc9335742a5f91"
+      "sha256": "e4fd4e2bb127e2217bab4d9b341f3cdcaf29b434f019e0c9e9406890e6d938c2"
     },
     {
       "path": "backend/desktop-state/desktop-snapshot.json",
-      "size": 7779557,
-      "sha256": "5d5fe31a604c7935d5c844370ea262aa72ca0979b66a9c998a9afa987901c307"
+      "size": 7756941,
+      "sha256": "ea4d68834c419576198f162961cbafc1f0c3efd091f3bee184c9b405fe77c1b4"
+    },
+    {
+      "path": "backend/desktop-state/examples/white-model/demo.mp4",
+      "size": 2691084,
+      "sha256": "ac003c14ff05ba7146bed19c8eea3cd1e7953223a9826d586bc81dce95d07121"
+    },
+    {
+      "path": "backend/desktop-state/examples/white-model/draft.json",
+      "size": 667160,
+      "sha256": "1cbd394ce0cc3e1c478bac9eba365cda2af5a9bb11256d979149500e66268fc4"
+    },
+    {
+      "path": "backend/desktop-state/examples/white-model/README.md",
+      "size": 199,
+      "sha256": "067e3aeb905bae719e58f07e34758b4fe5b705a2d1855af74a25f81a25b3934a"
     },
     {
       "path": "backend/desktop-state/plugin-packages/01961111eeddee583837424df4847035013069ed79cb3a30acc53821b843a3c1.yingce-plugin",
@@ -125883,8 +125903,8 @@
     },
     {
       "path": "backend/desktop-state/plugin-registry.json",
-      "size": 229601,
-      "sha256": "0b920933c91cd5826b8f57a15e7afbeef83fbcb64b22be697c2d0c718006dacc"
+      "size": 229597,
+      "sha256": "38b1737e743280e54703fa23eab01a298924bf85262ecedee52d537c5863335a"
     },
     {
       "path": "backend/desktop-state/prompt-templates.json",
@@ -126314,7 +126334,7 @@
     {
       "path": "release.json",
       "size": 79,
-      "sha256": "32be92e9f23fe58d9eda1caac3aae5747799ed95fe7f5c0435e75116b4c414c3"
+      "sha256": "844f0d75aacb102c677c3da7a488b841ee4ccdf0632e2050ff8fde97759efa1f"
     },
     {
       "path": "runtime/canvas-backend.exe",
@@ -132718,8 +132738,8 @@
     },
     {
       "path": "web/dist/assets/canvas-previs-workbench-BhL_zh_9.js",
-      "size": 163318,
-      "sha256": "e1d0e8aae7b24a3199487a07b219bb03a3f95d26ce1cf33b5c90bfb6d6f1a9d8"
+      "size": 164475,
+      "sha256": "fe119b4e72db73a65f511527385f5c7ab871c91d2643ee36343c223037c25998"
     },
     {
       "path": "web/dist/assets/canvas-previs-workbench-BHPNaUs1.js",
@@ -137982,29 +138002,44 @@
       "sha256": "5ed380d1c6f4c049c3e6ed7af64f5abe105a504590ba4d5cf68732f7bc064d8c"
     },
     {
+      "path": "web/dist/assets/director-assistant-view.js",
+      "size": 2959,
+      "sha256": "2b063f19911709937318bb65cb0a0a7569dff046ce955da1ae9147ce81549297"
+    },
+    {
+      "path": "web/dist/assets/director-budget.js",
+      "size": 1419,
+      "sha256": "a501a2c4655012b812dd4f7a8456f996aba3320d81e76589740c018fc71d5e85"
+    },
+    {
       "path": "web/dist/assets/director-camera.js",
-      "size": 1226,
-      "sha256": "1acc55a697a1276bb5748ee99784426155139315a28cb899ea800d875f52ebe3"
+      "size": 1368,
+      "sha256": "6d15d34cb45e9071c440e8359303bce3378106c95517bc037308366fec01c5a9"
+    },
+    {
+      "path": "web/dist/assets/director-compact.js",
+      "size": 1071,
+      "sha256": "0cd21cb1137d4d775d3aa1ae5c8c7b4d7d09da476e6352ab096dcee991fe394b"
     },
     {
       "path": "web/dist/assets/director-core.js",
-      "size": 16038,
-      "sha256": "adc2191eef0b35f60f6f4ed028644ac4e4871bb542e8ba33b24f959711441063"
+      "size": 16114,
+      "sha256": "055eb86acff11ac95fb10a0496270f7964a44dfc95f62a6760b3fe8d27c57431"
     },
     {
       "path": "web/dist/assets/director-mannequin.js",
-      "size": 3711,
-      "sha256": "8613c81d601a0e5621b33e3a0fd8a31b334acf4dd3892ecf2001f52027b5d476"
+      "size": 3831,
+      "sha256": "1aa2aee9ccc819ae3e4cf4ca22126372aa8ecd5e56386f425dd910a88ce62a47"
     },
     {
       "path": "web/dist/assets/director-motion-contract.js",
-      "size": 8628,
-      "sha256": "9f640abb5252a63a84db8efadb5319dd0084b333f06f86530d8d33a4bdf269a6"
+      "size": 9068,
+      "sha256": "036efe1dddb4d9047aa54d5a920df22efe0cdccaca659753a87a28c9a312a700"
     },
     {
       "path": "web/dist/assets/director-motion.js",
-      "size": 10899,
-      "sha256": "2a7efb1a1366979b6f2b870b399819ffe42704922f356b042603d53b8664729a"
+      "size": 14185,
+      "sha256": "e8be373497b9fe6bcf0ab844349526d4ddb239775cd1c56385c97033d48dfb09"
     },
     {
       "path": "web/dist/assets/director-recover.js",
@@ -138018,13 +138053,23 @@
     },
     {
       "path": "web/dist/assets/director-ui.css",
-      "size": 3069,
-      "sha256": "76c6e1d910a97d796a4ce7fd55245efdb27b2f143bf4c67b58b1dedf66ee29f2"
+      "size": 6436,
+      "sha256": "e077288a092a95fceb3fa2a1c2ef7b18ad482010dad209cc0550002abbf54108"
     },
     {
       "path": "web/dist/assets/director-ui.js",
-      "size": 20724,
-      "sha256": "4518302e279dc06ee8649768aa93060ce966c276688d71c96082867e8daa40d8"
+      "size": 36800,
+      "sha256": "05e38c50d9edb4b9e33b1227d2bf9e6a7b18c49ef7dcf3e12369a502f9b7069d"
+    },
+    {
+      "path": "web/dist/assets/director-user-demo.txt",
+      "size": 14683,
+      "sha256": "340017913f3848988d7c4b67af0cb75f0f16839fa2cf71f569527ac215890955"
+    },
+    {
+      "path": "web/dist/assets/director-workflow.js",
+      "size": 5445,
+      "sha256": "2b14b1e3854d4092e0e9e5388fad4f45f965a88c6c0147cdd22aa83e62381507"
     },
     {
       "path": "web/dist/assets/director-xbot.glb",
@@ -147508,8 +147553,8 @@
     },
     {
       "path": "web/dist/assets/project-B6TxOaS-.js",
-      "size": 1607089,
-      "sha256": "57bb60be86fd379214335fd2ffd2b2efca9298cbcf8a9299a80fe665aad76323"
+      "size": 1607199,
+      "sha256": "2957eda875a0c90a1f71f85ec8aaca98fcf7186044f2a910807db6295d87ef12"
     },
     {
       "path": "web/dist/assets/project-B8mgqmOi.js",
@@ -155803,8 +155848,8 @@
     },
     {
       "path": "web/dist/assets/user-data-sync-B6hrlYAn.js",
-      "size": 37842,
-      "sha256": "ab0150fc8ef561d47d20536fb12a4f909b0d868a15722e7b206c01434f16d671"
+      "size": 38681,
+      "sha256": "97811fa5910d90bda84942717cd3f84f09844874c8aedf008864cd7ddd5ed485"
     },
     {
       "path": "web/dist/assets/user-data-sync-Be8LFp0_.js",
@@ -161693,8 +161738,8 @@
     },
     {
       "path": "使用说明.md",
-      "size": 2077,
-      "sha256": "569a7b165b80661c8dffc14d2321f53d0e3c79f8a29a5a90ddb7d10da2d5ee56"
+      "size": 2508,
+      "sha256": "278826b7a8e540b3f04521d574752ca31b36bbd22c68ca979bebf87076a24ec9"
     },
     {
       "path": "安装或更新.cmd",
@@ -161702,163 +161747,39 @@
       "sha256": "c10133c152ac8b1fcd74db4032c4e15c3947ac65f49a119b4de7d30a5c38fab8"
     }
   ],
-  "archive": "Yingce-1.3.15-win-x64.zip",
-  "archiveSha256": "5d7bd407e24e7d392cf8c4d3dd44194ca8732ea1304aa962f4f5f23c26dec378",
+  "archive": "Yingce-1.3.16-win-x64.zip",
+  "archiveSha256": "ba04f8f9e7c17ae56d72d1788f83fe7aa806620bc646b2abbce8996ddf1bb8e2",
   "portableState": "backend/desktop-state/apply-state.mjs",
   "requiresInstallerVersion": 1,
   "delta": {
-    "baseVersion": "1.3.14",
-    "archive": "Yingce-1.3.15-from-1.3.14-delta.zip",
-    "sha256": "eed131edd87d03f271d01745bf875b66d8aa58a5a19c86209684c3a48d9c28d3",
+    "baseVersion": "1.3.15",
+    "archive": "Yingce-1.3.16-from-1.3.15-delta.zip",
+    "sha256": "d4c37937acfe60d4048cbb66b136e8bdb2cc8cba2b80b75185ac714bf1609baa",
     "paths": [
-      "app/debug.log",
       "app/resources/app.asar",
-      "app/resources/breeze-compat.cjs",
-      "app/resources/breeze-proxy.cjs",
-      "app/resources/native-image-clipboard.cjs",
-      "app/resources/native-image-clipboard.ps1",
+      "backend/desktop-state/channel-presets.json",
       "backend/desktop-state/database-state.json",
       "backend/desktop-state/desktop-snapshot.json",
-      "backend/desktop-state/plugin-packages/99bb830b511d54c50076bd217dcd0910435da2f85016d4fdf357d2a9f906113e.yingce-plugin",
-      "backend/desktop-state/plugin-packages/ba9f8838849f6a3ba8f89626cd704b6d3b69c05ed9f19e8b71a63694ff038fa8.yingce-plugin",
+      "backend/desktop-state/examples/white-model/demo.mp4",
+      "backend/desktop-state/examples/white-model/draft.json",
+      "backend/desktop-state/examples/white-model/README.md",
       "backend/desktop-state/plugin-registry.json",
-      "backend/desktop-state/prompt-templates.json",
-      "install.ps1",
       "release.json",
-      "web/dist/assets/auth-DDR5hxJV.js",
-      "web/dist/assets/breeze-audio.yingce-plugin",
-      "web/dist/assets/breeze-panel.js",
-      "web/dist/assets/breeze-recover-last.wav",
-      "web/dist/assets/canvas-habits.js",
-      "web/dist/assets/canvas-image-clipboard.js",
       "web/dist/assets/canvas-previs-workbench-BhL_zh_9.js",
-      "web/dist/assets/canvas-serial-generation.js",
-      "web/dist/assets/canvas-video-merge-D0Kmm8gl.js",
+      "web/dist/assets/director-assistant-view.js",
+      "web/dist/assets/director-budget.js",
       "web/dist/assets/director-camera.js",
+      "web/dist/assets/director-compact.js",
       "web/dist/assets/director-core.js",
       "web/dist/assets/director-mannequin.js",
       "web/dist/assets/director-motion-contract.js",
       "web/dist/assets/director-motion.js",
-      "web/dist/assets/director-recover.js",
-      "web/dist/assets/director-rig-rest.js",
       "web/dist/assets/director-ui.css",
       "web/dist/assets/director-ui.js",
-      "web/dist/assets/director-xbot.glb",
-      "web/dist/assets/generation-task-B2p8YPAC.js",
-      "web/dist/assets/managed-storyboard-templates.js",
-      "web/dist/assets/model-picker-C8hI2N1a.js",
-      "web/dist/assets/previs-preview-BsMF553p.js",
+      "web/dist/assets/director-user-demo.txt",
+      "web/dist/assets/director-workflow.js",
       "web/dist/assets/project-B6TxOaS-.js",
-      "web/dist/assets/storyboard-autonomous-director.js",
-      "web/dist/assets/storyboard-planned-runtime.js",
-      "web/dist/assets/storyboard-prompts-page--XVEauC_.js",
-      "web/dist/assets/storyboard-prompts-page-4DuvqzHG.js",
-      "web/dist/assets/storyboard-prompts-page-8_Jd0Msd.js",
-      "web/dist/assets/storyboard-prompts-page-AMr_U2O7.js",
-      "web/dist/assets/storyboard-prompts-page-B38jVvSE.js",
-      "web/dist/assets/storyboard-prompts-page-B5CtbEWy.js",
-      "web/dist/assets/storyboard-prompts-page-B87ts4-x.js",
-      "web/dist/assets/storyboard-prompts-page-B88bc9tq.js",
-      "web/dist/assets/storyboard-prompts-page-B9J7Yjj8.js",
-      "web/dist/assets/storyboard-prompts-page-BBLJUVMx.js",
-      "web/dist/assets/storyboard-prompts-page-BDFAFI6G.js",
-      "web/dist/assets/storyboard-prompts-page-Be6czEQe.js",
-      "web/dist/assets/storyboard-prompts-page-BEbGoAjo.js",
-      "web/dist/assets/storyboard-prompts-page-BeY0Vo4x.js",
-      "web/dist/assets/storyboard-prompts-page-BfS4j5ip.js",
-      "web/dist/assets/storyboard-prompts-page-Bg8yc2rO.js",
-      "web/dist/assets/storyboard-prompts-page-BG_XaSK9.js",
-      "web/dist/assets/storyboard-prompts-page-BIIXp5Fc.js",
-      "web/dist/assets/storyboard-prompts-page-BLBoksBG.js",
-      "web/dist/assets/storyboard-prompts-page-BmmS_C3N.js",
-      "web/dist/assets/storyboard-prompts-page-Bo5YnBqy.js",
-      "web/dist/assets/storyboard-prompts-page-BPShdGSb.js",
-      "web/dist/assets/storyboard-prompts-page-Bs7pdJCE.js",
-      "web/dist/assets/storyboard-prompts-page-Bx1gkswe.js",
-      "web/dist/assets/storyboard-prompts-page-BxLhZzuW.js",
-      "web/dist/assets/storyboard-prompts-page-BZFE7HRQ.js",
-      "web/dist/assets/storyboard-prompts-page-C17F233p.js",
-      "web/dist/assets/storyboard-prompts-page-C1m1pGHY.js",
-      "web/dist/assets/storyboard-prompts-page-C8DhUua3.js",
-      "web/dist/assets/storyboard-prompts-page-C9CaZO-c.js",
-      "web/dist/assets/storyboard-prompts-page-C_mt7lLR.js",
-      "web/dist/assets/storyboard-prompts-page-CA6kLOIJ.js",
-      "web/dist/assets/storyboard-prompts-page-CAMDB-cU.js",
-      "web/dist/assets/storyboard-prompts-page-Cb4nEFmk.js",
-      "web/dist/assets/storyboard-prompts-page-Cb7nfEyA.js",
-      "web/dist/assets/storyboard-prompts-page-CBfaAktc.js",
-      "web/dist/assets/storyboard-prompts-page-CBsvMiki.js",
-      "web/dist/assets/storyboard-prompts-page-CetzkIEF.js",
-      "web/dist/assets/storyboard-prompts-page-CfnzLCQW.js",
-      "web/dist/assets/storyboard-prompts-page-CGobrSeP.js",
-      "web/dist/assets/storyboard-prompts-page-ChMTpxqZ.js",
-      "web/dist/assets/storyboard-prompts-page-ClFYIpQe.js",
-      "web/dist/assets/storyboard-prompts-page-CVaMqZtn.js",
-      "web/dist/assets/storyboard-prompts-page-CVWbajyj.js",
-      "web/dist/assets/storyboard-prompts-page-CXmQJ4yw.js",
-      "web/dist/assets/storyboard-prompts-page-CyGvyjyx.js",
-      "web/dist/assets/storyboard-prompts-page-CYz8RUOq.js",
-      "web/dist/assets/storyboard-prompts-page-CYzJpzjF.js",
-      "web/dist/assets/storyboard-prompts-page-D0k4gRwE.js",
-      "web/dist/assets/storyboard-prompts-page-D1XQ1X2B.js",
-      "web/dist/assets/storyboard-prompts-page-D7spv0wb.js",
-      "web/dist/assets/storyboard-prompts-page-D8hLlwl2.js",
-      "web/dist/assets/storyboard-prompts-page-D_-pmnms.js",
-      "web/dist/assets/storyboard-prompts-page-D_0ulLBR.js",
-      "web/dist/assets/storyboard-prompts-page-DBCtCKDH.js",
-      "web/dist/assets/storyboard-prompts-page-Dbms9fXk.js",
-      "web/dist/assets/storyboard-prompts-page-DbW85_Hs.js",
-      "web/dist/assets/storyboard-prompts-page-DCq_B-Zk.js",
-      "web/dist/assets/storyboard-prompts-page-DEDfcvzf.js",
-      "web/dist/assets/storyboard-prompts-page-DfOJXjQQ.js",
-      "web/dist/assets/storyboard-prompts-page-DHm3iJsM.js",
-      "web/dist/assets/storyboard-prompts-page-Dl_GaQGh.js",
-      "web/dist/assets/storyboard-prompts-page-DLEbjQqq.js",
-      "web/dist/assets/storyboard-prompts-page-DN7DFQUK.js",
-      "web/dist/assets/storyboard-prompts-page-DNdhkrUu.js",
-      "web/dist/assets/storyboard-prompts-page-DnFE7kzR.js",
-      "web/dist/assets/storyboard-prompts-page-DnkbD_KU.js",
-      "web/dist/assets/storyboard-prompts-page-DNubHWS1.js",
-      "web/dist/assets/storyboard-prompts-page-DnZmHr9D.js",
-      "web/dist/assets/storyboard-prompts-page-DnZYxao7.js",
-      "web/dist/assets/storyboard-prompts-page-DouxjqZ9.js",
-      "web/dist/assets/storyboard-prompts-page-DRwECkxS.js",
-      "web/dist/assets/storyboard-prompts-page-DsWjdLA-.js",
-      "web/dist/assets/storyboard-prompts-page-DtPypu7L.js",
-      "web/dist/assets/storyboard-prompts-page-DtqSnaZs.js",
-      "web/dist/assets/storyboard-prompts-page-DvL41mIt.js",
-      "web/dist/assets/storyboard-prompts-page-DW4ed8i-.js",
-      "web/dist/assets/storyboard-prompts-page-DwhGGgDI.js",
-      "web/dist/assets/storyboard-prompts-page-DwQmYFlh.js",
-      "web/dist/assets/storyboard-prompts-page-Dx6NGEII.js",
-      "web/dist/assets/storyboard-prompts-page-Dyzw-Tkf.js",
-      "web/dist/assets/storyboard-prompts-page-DZnRFiZF.js",
-      "web/dist/assets/storyboard-prompts-page-DZZwAilB.js",
-      "web/dist/assets/storyboard-prompts-page-fSOqOhIK.js",
-      "web/dist/assets/storyboard-prompts-page-gPeIGnW5.js",
-      "web/dist/assets/storyboard-prompts-page-HW6dSBkg.js",
-      "web/dist/assets/storyboard-prompts-page-J3pGXZ_y.js",
-      "web/dist/assets/storyboard-prompts-page-JirR3d0M.js",
-      "web/dist/assets/storyboard-prompts-page-kJDU4SZV.js",
-      "web/dist/assets/storyboard-prompts-page-m_GV3lgH.js",
-      "web/dist/assets/storyboard-prompts-page-Mu4P2FKg.js",
-      "web/dist/assets/storyboard-prompts-page-Mw74Xc5E.js",
-      "web/dist/assets/storyboard-prompts-page-nbf74OcR.js",
-      "web/dist/assets/storyboard-prompts-page-QyJQaSYP.js",
-      "web/dist/assets/storyboard-prompts-page-r0eEApXg.js",
-      "web/dist/assets/storyboard-prompts-page-RHxji2CG.js",
-      "web/dist/assets/storyboard-prompts-page-tezmW7SX.js",
-      "web/dist/assets/storyboard-prompts-page-tSHFO4Bg.js",
-      "web/dist/assets/storyboard-prompts-page-TSvZMt_K.js",
-      "web/dist/assets/storyboard-prompts-page-uh4QWIq9.js",
-      "web/dist/assets/storyboard-prompts-page-xR0HOD2b.js",
-      "web/dist/assets/storyboard-prompts-page-yt96SSDc.js",
-      "web/dist/assets/storyboard-prompts-page-YWs7q89V.js",
-      "web/dist/assets/storyboard-prompts-page-ZP53NHuC.js",
-      "web/dist/assets/storyboard-repair-stage.js",
       "web/dist/assets/user-data-sync-B6hrlYAn.js",
-      "web/dist/assets/voice-catalog.js",
-      "web/dist/index.html",
       "使用说明.md"
     ]
   }
