@@ -30,8 +30,29 @@ if(!$online -and (Test-Path -LiteralPath (Join-Path $FeedRoot 'release.json')) -
     if($localRelease.version -ne $releaseInfo.version){throw 'Local release version mismatch'}
     $sourceRoot=[IO.Path]::GetFullPath($FeedRoot)
 }
+$deltaBase=''
+$deltaMode=$false
+if($releaseInfo.delta -and (Test-Path -LiteralPath (Join-Path $InstallRoot 'current.txt'))){
+    $installed=(Get-Content -LiteralPath (Join-Path $InstallRoot 'current.txt') -Raw).Trim()
+    if($installed -match '^\d+\.\d+\.\d+$'){
+        $deltaBase=Join-Path $InstallRoot ('versions\'+$installed)
+        $deltaMode=$true
+        foreach($item in $releaseInfo.files){
+            if($item.path -in $releaseInfo.delta.paths){continue}
+            $existing=[IO.Path]::GetFullPath((Join-Path $deltaBase $item.path))
+            if(!$existing.StartsWith($deltaBase+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Invalid delta path'}
+            if(!(Test-Path -LiteralPath $existing) -or (Get-ReleaseFileHash $existing).Hash -ne $item.sha256){$deltaMode=$false;break}
+        }
+    }
+}
+if($deltaMode){
+    if($releaseInfo.delta.archive -ne ('Yingce-'+$releaseInfo.version+'-from-'+$releaseInfo.delta.baseVersion+'-delta.zip')){throw 'Invalid delta archive'}
+    $releaseInfo.archive=$releaseInfo.delta.archive
+    $releaseInfo.archiveSha256=$releaseInfo.delta.sha256
+    Write-Host 'Verified installed files; downloading incremental update.'
+}
 if($releaseInfo.archive){
-    if($releaseInfo.archive -ne ('Yingce-'+$releaseInfo.version+'-win-x64.zip')){throw 'Invalid archive name'}
+    if(!$deltaMode -and $releaseInfo.archive -ne ('Yingce-'+$releaseInfo.version+'-win-x64.zip')){throw 'Invalid archive name'}
     if($releaseInfo.archiveSha256 -notmatch '^[A-Fa-f0-9]{64}$'){throw 'Invalid archive checksum'}
     $cache=Join-Path $InstallRoot ('cache\'+$releaseInfo.version)
     New-Item -ItemType Directory -Force -Path $cache | Out-Null
@@ -53,6 +74,15 @@ if($releaseInfo.archive){
         }
     }finally{$zip.Dispose()}
     [IO.Compression.ZipFile]::ExtractToDirectory($archivePath,$sourceRoot)
+    if($deltaMode){
+        foreach($item in $releaseInfo.files){
+            if($item.path -in $releaseInfo.delta.paths){continue}
+            $target=[IO.Path]::GetFullPath((Join-Path $sourceRoot $item.path))
+            if(!$target.StartsWith($sourceRoot+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Invalid delta destination'}
+            New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
+            Copy-Item -LiteralPath (Join-Path $deltaBase $item.path) -Destination $target
+        }
+    }
 }
 $versionRoot=[IO.Path]::GetFullPath((Join-Path $InstallRoot ('versions\'+$releaseInfo.version)))
 New-Item -ItemType Directory -Force -Path $versionRoot | Out-Null

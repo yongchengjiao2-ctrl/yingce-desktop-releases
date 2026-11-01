@@ -1,8 +1,8 @@
 # 影策个人桌面版
 
-当前完整版本：**1.3.14**，基于 2026-10-27 本机实际桌面运行状态发布，包含单次非流式分镜、9 项后台提示词、73 项内置技能与 14 项协议定义。
+当前完整版本：**1.3.15**，基于 2026-11-01 本机实际桌面运行状态发布，包含单次非流式分镜、9 项后台提示词、73 项内置技能与 16 项协议定义。
 
-[下载完整桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.14)
+[下载完整桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.15)
 
 首次安装：下载同一 Release 中的 install.cmd 和 install.ps1，放在同一文件夹后双击 install.cmd。已安装：使用「影策 → 安装或更新影策」。也可下载完整 ZIP 后解压运行其中「安装或更新.cmd」。
 
@@ -11,3 +11,6 @@
 程序及配置快照的可审阅文本、完整哈希与发布脚本见[开发工作区](https://github.com/yongchengjiao2-ctrl/-)。只 git pull 开发工作区不会更新已安装的桌面程序。
 
 安装包不包含原电脑的个人项目、小说正文、浏览器配置或密钥。第三方组件保留各自许可证。
+
+
+1.3.15 包含当前桌面白膜导演工作台、动作与运镜、白膜视频导出、插件协议、提示词与功能开关配置。提供基于 1.3.14 的差量 ZIP；使用本次 install.ps1 时自动校验并选择差量，否则回退完整包。个人项目和已生成视频保留在本机，不进入公开发行包。
