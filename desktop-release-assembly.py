@@ -17,7 +17,7 @@ for version,name in [('desktop-v1.3.16','Yingce-1.3.16-win-x64.zip'),(tag,'assem
 def sha(file):
     with file.open('rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest().upper()
 base=incoming/'Yingce-1.3.16-win-x64.zip';patch=incoming/'assembly-input-1.3.17.zip'
-assert sha(base)=='BA04F8F9E7C17AE56D72D1788F83FE7AA806620BC646B2ABBCE8996DDDF1BB8E2'
+assert sha(base)=='BA04F8F9E7C17AE56D72D1788F83FE7AA806620BC646B2ABBCE8996DDF1BB8E2'
 assert sha(patch)==expected,'Assembly input checksum mismatch'
 stage=root/'assembled';stage.mkdir()
 def target(name):
