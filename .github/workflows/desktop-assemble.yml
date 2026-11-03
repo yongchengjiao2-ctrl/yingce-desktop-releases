@@ -1,0 +1,25 @@
+name: Assemble verified desktop release
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        required: true
+        default: desktop-v1.3.17
+      patch_sha256:
+        required: true
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_TAG: ${{ inputs.target_tag }}
+      PATCH_SHA256: ${{ inputs.patch_sha256 }}
+    steps:
+      - name: Load the assembler from this workflow commit
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/desktop-release-assembly.py?ref=$GITHUB_SHA" --jq .content | base64 --decode > assembly.py
+      - name: Verify and assemble the complete offline bundle
+        run: python assembly.py
