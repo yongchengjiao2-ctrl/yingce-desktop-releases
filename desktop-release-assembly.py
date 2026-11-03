@@ -1,0 +1,62 @@
+"""GitHub runner: reconstruct only verified files, upload to the existing draft."""
+import hashlib,json,os,pathlib,re,shutil,struct,subprocess,zipfile
+root=pathlib.Path.cwd()
+tag=os.environ['TARGET_TAG'];expected=os.environ['PATCH_SHA256'].upper()
+assert tag=='desktop-v1.3.17' and re.fullmatch('[A-F0-9]{64}',expected)
+repo=os.environ['GITHUB_REPOSITORY']
+def gh(*args):return subprocess.check_output(['gh',*args],text=True)
+release=json.loads(gh('api',f'repos/{repo}/releases/tags/{tag}'))
+assert release['draft'],'Assembly may not modify a public release'
+incoming=root/'incoming';incoming.mkdir()
+for version,name in [('desktop-v1.3.16','Yingce-1.3.16-win-x64.zip'),(tag,'assembly-input-1.3.17.zip')]:
+    gh('release','download',version,'--repo',repo,'--pattern',name,'--dir',str(incoming))
+def sha(file):
+    with file.open('rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest().upper()
+base=incoming/'Yingce-1.3.16-win-x64.zip';patch=incoming/'assembly-input-1.3.17.zip'
+assert sha(base)=='BA04F8F9E7C17AE56D72D1788F83FE7AA806620BC646B2ABBCE8996DDDF1BB8E2'
+assert sha(patch)==expected,'Assembly input checksum mismatch'
+stage=root/'assembled';stage.mkdir()
+def target(name):
+    value=(stage/name).resolve()
+    assert value.is_relative_to(stage.resolve()) and value!=stage.resolve(),'Invalid archive path'
+    return value
+def extract(bundle):
+    for entry in bundle.infolist():
+        destination=target(entry.filename)
+        if entry.is_dir():destination.mkdir(parents=True,exist_ok=True);continue
+        destination.parent.mkdir(parents=True,exist_ok=True)
+        with bundle.open(entry) as src,destination.open('wb') as dst:shutil.copyfileobj(src,dst)
+with zipfile.ZipFile(base) as bundle:extract(bundle)
+with zipfile.ZipFile(patch) as bundle:
+    config=json.loads(bundle.read('.assembly/input.json'))
+    manifest=config['manifest']
+    assert manifest['version']=='1.3.17'
+    allowed={item['path'] for item in manifest['files']}
+    for entry in bundle.infolist():
+        if entry.filename.startswith('.assembly/'):continue
+        assert entry.filename in allowed,'Unexpected patch entry'
+        destination=target(entry.filename);destination.parent.mkdir(parents=True,exist_ok=True)
+        with bundle.open(entry) as src,destination.open('wb') as dst:shutil.copyfileobj(src,dst)
+    for item in config['sparse']:
+        assert item['path'] in allowed
+        file=target(item['path']);assert sha(file)==item['baseSha256']
+        with bundle.open(item['entry']) as src,file.open('r+b') as dst:
+            assert src.read(4)==b'YCS1';dst.truncate(struct.unpack('<Q',src.read(8))[0])
+            while data:=src.read(12):
+                offset,size=struct.unpack('<QI',data);chunk=src.read(size);assert len(chunk)==size
+                dst.seek(offset);dst.write(chunk)
+for item in manifest['files']:
+    file=target(item['path']);assert file.stat().st_size==item['size'] and sha(file)==item['sha256'].upper(),'File verification failed: '+item['path']
+output=root/'output';output.mkdir()
+inner={k:v for k,v in manifest.items() if k not in ('archive','archiveSha256')}
+archive=output/'Yingce-1.3.17-win-x64.zip'
+with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=1) as bundle:
+    for item in manifest['files']:bundle.write(target(item['path']),item['path'])
+    bundle.writestr('latest.json',json.dumps(inner,ensure_ascii=False))
+with zipfile.ZipFile(archive) as bundle:assert bundle.testzip() is None
+manifest.update(archive=archive.name,archiveSha256=sha(archive))
+(output/'latest.json').write_text(json.dumps(manifest,ensure_ascii=False),encoding='utf-8')
+(output/(archive.name+'.sha256')).write_text(manifest['archiveSha256']+'  '+archive.name+'\n')
+for old,new in [('install.ps1','install.ps1'),('安装或更新.cmd','install.cmd'),('使用说明.md','instructions.md')]:shutil.copy2(target(old),output/new)
+for file in output.iterdir():gh('release','upload',tag,str(file),'--repo',repo,'--clobber')
+print(json.dumps({'files':len(manifest['files']),'sha256':manifest['archiveSha256'],'bytes':archive.stat().st_size,'draft':True}))
