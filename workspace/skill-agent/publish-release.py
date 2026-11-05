@@ -68,7 +68,7 @@ def main(commit):
     releases=api(token,'/releases?per_page=100');existing=next((r for r in releases if r['tag_name']==TAG),None)
     if existing and not existing['draft']:raise RuntimeError('This version is already public; refusing to replace it')
     release=existing or api(token,'/releases','POST',{'tag_name':TAG,'target_commitish':commit,'name':'影策 v1.3.19 · Skill 对话与项目迁移','body':(REPO/'release-notes-v1.3.19.md').read_text(encoding='utf8'),'draft':True,'prerelease':False})
-    release=api(token,'/releases/'+str(release['id']),'PATCH',{'target_commitish':commit,'body':(REPO/'release-notes-v1.3.19.md').read_text(encoding='utf8')})
+    release=api(token,'/releases/'+str(release['id']),'PATCH',{'tag_name':TAG,'target_commitish':commit,'body':(REPO/'release-notes-v1.3.19.md').read_text(encoding='utf8')})
     (OUT/'draft-release.json').write_text(json.dumps({'id':release['id'],'url':release['html_url']}),encoding='utf8')
     assets=api(token,'/releases/'+str(release['id'])+'/assets')
     for path in paths:
@@ -79,8 +79,8 @@ def main(commit):
             api(token,'/releases/assets/'+str(asset['id']),'DELETE')
         upload(token,release,path)
     assets=api(token,'/releases/'+str(release['id'])+'/assets');assert {p.name for p in paths}.issubset({a['name'] for a in assets})
-    release=api(token,'/releases/'+str(release['id']),'PATCH',{'draft':False,'make_latest':'true'})
-    latest=api(token,'/releases/latest');assert latest['tag_name']==TAG
+    release=api(token,'/releases/'+str(release['id']),'PATCH',{'tag_name':TAG,'target_commitish':commit,'draft':False,'make_latest':'true'})
+    latest=api(token,'/releases/latest?verify='+str(time.time_ns()));assert latest['tag_name']==TAG
     result={'id':release['id'],'url':release['html_url'],'tag':TAG,'assets':[{'name':a['name'],'size':a['size'],'digest':a.get('digest')} for a in assets]}
     (OUT/'published-release.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf8');print(json.dumps(result,ensure_ascii=True),flush=True)
 
