@@ -1,12 +1,12 @@
 # 影策个人桌面版
 
-当前完整版本：**1.3.16**，基于 2026-11-02 本机实际桌面运行状态发布，包含单次非流式分镜、9 项后台提示词、73 项内置技能与 16 项协议定义。
+当前完整版本 **1.3.18**。支持按集导入视频、核对原音和画面、生成中英对照剧本与可编辑的逐镜拆解表。
 
-[下载完整桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.16)
+[下载 v1.3.18 完整桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.18)
 
 首次安装：下载同一 Release 中的 install.cmd 和 install.ps1，放在同一文件夹后双击 install.cmd。已安装：使用「影策 → 安装或更新影策」。也可下载完整 ZIP 后解压运行其中「安装或更新.cmd」。
 
-本次会自动备份并安装快照中的提示词和协议定义；同版本仅迁移一次，之后后台编辑不会被每次启动重置。现有画布、素材、任务、渠道和密钥保留。新电脑需自行配置接口及 API Key。
+1.3.16 快照迁移会自动备份并安装快照中的提示词和协议定义；同版本仅迁移一次，之后后台编辑不会被每次启动重置。现有画布、素材、任务、渠道和密钥保留。新电脑需自行配置接口及 API Key。
 
 程序及配置快照的可审阅文本、完整哈希与发布脚本见[开发工作区](https://github.com/yongchengjiao2-ctrl/-)。只 git pull 开发工作区不会更新已安装的桌面程序。
 

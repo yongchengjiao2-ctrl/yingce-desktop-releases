@@ -22,6 +22,7 @@ if($online){
     finally{Remove-Item -LiteralPath $manifestTemp -Force}
 }else{$releaseInfo=Get-Content -LiteralPath (Join-Path $FeedRoot 'latest.json') -Raw -Encoding UTF8 | ConvertFrom-Json}
 if ($releaseInfo.version -notmatch '^\d+\.\d+\.\d+$') {throw 'Invalid release version'}
+if ($releaseInfo.version -eq '1.3.17') {throw 'Version 1.3.17 is disabled. Use 1.3.18 or a later verified release.'}
 if(!$releaseInfo.files -or $releaseInfo.files.Count -eq 0){throw 'Empty release manifest'}
 if($online -and !$releaseInfo.archive){throw 'Online release must contain an archive'}
 if($online){$sourceRoot=''}else{$sourceRoot=[IO.Path]::GetFullPath((Join-Path $FeedRoot ('releases\'+$releaseInfo.version)))}
@@ -121,7 +122,8 @@ if ($releaseInfo.portableState) {
 # Keep a local copy of the trusted installer; updates never execute a downloaded script.
 $installerPath=Join-Path $InstallRoot 'install.ps1'
 if([IO.Path]::GetFullPath($PSCommandPath) -ne [IO.Path]::GetFullPath($installerPath)){Copy-Item -LiteralPath $PSCommandPath -Destination $installerPath -Force}
-$FeedRoot | Set-Content -LiteralPath (Join-Path $InstallRoot 'update-source.txt') -Encoding UTF8
+$nextFeed=if($online){$FeedRoot}else{'https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/latest/download'}
+$nextFeed | Set-Content -LiteralPath (Join-Path $InstallRoot 'update-source.txt') -Encoding UTF8
 $updater=@'
 $ErrorActionPreference='Stop'
 $feed=(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'update-source.txt') -Raw -Encoding UTF8).Trim()

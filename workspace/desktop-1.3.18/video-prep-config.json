@@ -1,0 +1,1 @@
+{"python": "python/python.exe", "model": "models/faster-whisper-small", "speakerModel": "models/speaker-embedding/wespeaker_en_voxceleb_resnet34_LM.onnx"}
