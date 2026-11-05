@@ -1,19 +1,13 @@
 # 影策个人桌面版
 
-当前完整版本 **1.3.18**。支持按集导入视频、核对原音和画面、生成中英对照剧本与可编辑的逐镜拆解表。
+当前完整版本 **v1.3.19**。
 
-[下载 v1.3.18 完整桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.18)
+[下载 v1.3.19 桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.19)
 
-首次安装：下载同一 Release 中的 install.cmd 和 install.ps1，放在同一文件夹后双击 install.cmd。已安装：使用「影策 → 安装或更新影策」。也可下载完整 ZIP 后解压运行其中「安装或更新.cmd」。
+首次安装：下载同一 Release 中的 **install.cmd** 与 **install.ps1**，放在同一个文件夹后双击 install.cmd。已安装版本可使用「影策 → 安装或更新影策」。完整 ZIP 解压后运行「安装或更新.cmd」。适用于 Windows 10/11 x64。
 
-1.3.16 快照迁移会自动备份并安装快照中的提示词和协议定义；同版本仅迁移一次，之后后台编辑不会被每次启动重置。现有画布、素材、任务、渠道和密钥保留。新电脑需自行配置接口及 API Key。
+本版新增章节 Skill/Agent 对话与富文本保存、可移动助手和按项目 ZIP 迁移。项目卡片右上角可一键打包，旁边的「一键上传项目」卡片可在新电脑恢复章节、聊天、画布及关联素材。新电脑需要自行配置模型接口和 API Key。
 
-程序及配置快照的可审阅文本、完整哈希与发布脚本见[开发工作区](https://github.com/yongchengjiao2-ctrl/-)。只 git pull 开发工作区不会更新已安装的桌面程序。
+[更新说明与验证范围](release-notes-v1.3.19.md) · [三轮验收记录](acceptance-v1.3.19.json) · [可审阅功能源码](workspace/skill-agent/README.md)
 
-安装包不包含原电脑的个人项目、小说正文、浏览器配置或密钥。第三方组件保留各自许可证。
-
-
-1.3.16 包含当前桌面白膜导演工作台、动作与运镜、白膜视频导出、插件协议、提示词与功能开关配置。提供基于 1.3.15 的差量 ZIP；使用本次 install.ps1 时自动校验并选择差量，否则回退完整包。个人项目和已生成视频保留在本机，不进入公开发行包。
-
-
-1.3.16 更新：捕获当前桌面可编辑白模预演、API分析与修改、粗糙小人、动作/持物绑定、分镜机位、安全取景、画幅录制和草稿保存修复。附带12.5秒无声演示与可导入草稿（backend/desktop-state/examples/white-model），演示效果尚未完全验收。channel-presets.json提供测试白膜接口地址与模型名称，密钥为空；升级保留本机已有渠道。
+发行包不包含原电脑的个人项目、小说正文、浏览器配置或密钥。升级保留本机数据和渠道设置；第三方组件保留各自许可证。上游项目：[open-ai-canvas](https://github.com/ddcat-ai/open-ai-canvas)。

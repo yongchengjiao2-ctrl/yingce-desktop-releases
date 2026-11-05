@@ -1,0 +1,26 @@
+import {composerPaths} from '../src/composer-icons.js';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {Window} from 'happy-dom';
+test('native composer picker selects per conversation, shows introduction, and merges skill into the existing request',async()=>{
+  const w=new Window({url:'http://localhost'});
+  for(const key of ['window','document','navigator','location','localStorage','Event','HTMLElement','MutationObserver'])Object.defineProperty(globalThis,key,{value:key==='window'?w:w[key],configurable:true});
+  const vendor=await import('../../../../versions/1.3.18/web/dist/assets/vendor-react-DaNkUq-_.js');
+  const React=vendor.Z(),client=vendor.W();
+  const skills=[{skillId:'writer',skillName:'剧本撰写',description:'场景写作、潜台词与人物声音',version:'1',isAdded:true}];
+  let source=await readFile(new URL('../src/creation-skill-picker.js',import.meta.url),'utf8');source=source.replace(/^import .*;\r?\n/gm,'').replaceAll('export ','');
+  const functions=new Function('reactModule','reactDOMModule','initSkills','listAddedSkills','initScope','userScope','composerPaths',source+';return {CreationSkillPicker,mergeCreationSkills,selectedCreationSkills};')(()=>React,vendor.K,()=>{},async()=>({skills}),()=>{},()=> 'test',composerPaths);
+  const root=client.createRoot(document.body.appendChild(document.createElement('div')));
+  const wait=()=>new Promise(resolve=>setTimeout(resolve,30));
+  root.render(React.createElement(functions.CreationSkillPicker,{conversationId:'one'}));await wait();
+  document.querySelector('[aria-label="选择技能"]').click();await wait();
+  const row=document.querySelector('[role="checkbox"]');assert.ok(row);row.click();await wait();
+  assert.deepEqual(functions.selectedCreationSkills('one'),['writer']);
+  const merged=await functions.mergeCreationSkills('one',[]);assert.equal(merged[0].skill.skillName,'剧本撰写');assert.equal(merged[0].active,true);
+  assert.deepEqual(functions.selectedCreationSkills('two'),[]);
+  const same=await functions.mergeCreationSkills('one',merged);assert.equal(same.length,1);
+  root.render(React.createElement(functions.CreationSkillPicker,{conversationId:'two'}));await wait();
+  assert.equal(document.querySelector('[aria-expanded="false"]').textContent.includes('选择技能'),true);
+  root.unmount();w.happyDOM.abort();
+});

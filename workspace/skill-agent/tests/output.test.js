@@ -1,0 +1,22 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {Window} from 'happy-dom';
+import {readFile} from 'node:fs/promises';
+test('creation outputs save into an existing chapter or a new chapter, preserving provenance and blocking stale writes',async()=>{
+  const w=new Window({url:'http://localhost/'});for(const k of ['window','document','location','DOMParser','CustomEvent'])Object.defineProperty(globalThis,k,{value:k==='window'?w:w[k],configurable:true});
+  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+  let unit={id:'c',kind:'chapter',title:'第六集',sourceText:'<p>原文</p>'},patches=0,creates=0;const data=new Map(),createdUnits=new Map();
+  const api={get:async path=>path==='/projects'?{projects:[{project:{id:'p',name:'测试项目'},unitCount:1}]}:path.endsWith('/units')?{units:[unit]}:{unit:{...(createdUnits.get(path.split('/').at(-1))||unit)}},patch:async(path,value)=>{patches++;await new Promise(r=>setTimeout(r,5));const target=createdUnits.get(path.split('/').at(-1))||unit;Object.assign(target,value);return{unit:target};},post:async(path,value)=>{creates++;const created={id:'new-'+creates,...value};createdUnits.set(created.id,created);return{unit:created};}};
+  let source=await readFile(new URL('../src/chapter-output.js',import.meta.url),'utf8');source=source.replace(/^import .*;\r?\n/gm,'').replaceAll('export ','');
+  const f=new Function('api','initRequest','storageFor','initStorage','userScope','initScope','outputRichText',source+';return {showChapterSave,conversationText,appendChapterOutput};')(api,()=>{},()=>({getItem:async k=>data.get(k),setItem:async(k,v)=>data.set(k,v)}),()=>{},()=> 'user',()=>{},text=>'<p>'+text.replaceAll('<','&lt;').replaceAll('>','&gt;')+'</p>');
+  assert.equal(f.conversationText({messages:[{role:'user',content:'要求'},{role:'assistant',status:'done',content:'成果'},{role:'assistant',status:'error',content:'失败'}]}),'【用户】\n要求\n\n【影策】\n成果');
+  await f.showChapterSave({text:'Skill 成果 <script>alert(1)</script>',title:'验收',conversationId:'chat',messageId:'reply'});
+  const project=document.querySelector('[aria-label="保存到项目"]'),chapter=document.querySelector('[aria-label="保存到章节"]');project.value='p';await project.onchange();chapter.value='c';chapter.onchange();
+  const buttons=()=>[...document.querySelectorAll('dialog button')],preview=buttons().find(b=>b.textContent==='预览'),save=buttons().find(b=>b.textContent==='确认保存');
+  await preview.onclick();unit.sourceText='<p>人工修改</p>';await save.onclick();assert.equal(patches,0);assert.match(document.querySelector('[role="alert"]').textContent,/已有修改/);
+  await preview.onclick();await Promise.all([save.onclick(),save.onclick()]);assert.equal(patches,1);assert.match(unit.sourceText,/人工修改/);assert.match(unit.sourceText,/&lt;script&gt;/);assert.equal(document.querySelector('dialog script'),null);
+  const journal=JSON.parse(data.get('yingce-chapter-outputs-v1'));assert.equal(journal.at(-1).messageId,'reply');assert.equal(journal.at(-1).status,'succeeded');assert.ok(document.querySelector('a[href="/projects/p/chapters/c"]'));
+  buttons().find(b=>b.textContent==='完成').click();await f.showChapterSave({text:'新剧本',title:'新的一章'});const p2=document.querySelector('[aria-label="保存到项目"]');p2.value='p';await p2.onchange();assert.equal(document.querySelector('[aria-label="新章节名称"]').hidden,false);await buttons().find(b=>b.textContent==='预览').onclick();await buttons().find(b=>b.textContent==='确认保存').onclick();assert.equal(creates,1);
+  assert.equal(createdUnits.get('new-1').sourceText,'<p>新剧本</p>');buttons().find(b=>b.textContent==='完成').click();await f.showChapterSave({text:'无需预览直接保存',title:'直接保存'});await Promise.all([buttons().find(b=>b.textContent==='确认保存').onclick(),buttons().find(b=>b.textContent==='确认保存').onclick()]);assert.equal(creates,2);assert.equal(createdUnits.get('new-2').sourceText,'<p>无需预览直接保存</p>');assert.equal(document.querySelector('.ysa-rich-preview').hidden,true);
+  w.happyDOM.abort();
+});

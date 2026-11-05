@@ -1,0 +1,79 @@
+{
+  "version": "1.3.19",
+  "passed": true,
+  "automatedTestsPerRound": 24,
+  "rounds": [
+    {
+      "round": 1,
+      "passed": true,
+      "checks": [
+        "frontend regression",
+        "ZIP and installer safety",
+        "new chapter rich-text readback",
+        "chapter list and order",
+        "append preserves formatting",
+        "single-project ZIP export",
+        "fresh-account import chapters/canvas/chat associations",
+        "imported image is served by the real target backend",
+        "repeated import keeps existing project"
+      ]
+    },
+    {
+      "round": 2,
+      "passed": true,
+      "checks": [
+        "frontend regression",
+        "ZIP and installer safety",
+        "new chapter rich-text readback",
+        "chapter list and order",
+        "append preserves formatting",
+        "single-project ZIP export",
+        "fresh-account import chapters/canvas/chat associations",
+        "imported image is served by the real target backend",
+        "repeated import keeps existing project"
+      ]
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "checks": [
+        "frontend regression",
+        "ZIP and installer safety",
+        "new chapter rich-text readback",
+        "chapter list and order",
+        "append preserves formatting",
+        "single-project ZIP export",
+        "fresh-account import chapters/canvas/chat associations",
+        "imported image is served by the real target backend",
+        "repeated import keeps existing project"
+      ]
+    }
+  ],
+  "desktop": {
+    "version": "1.3.19",
+    "passed": true,
+    "checks": [
+      "project library hides Agent and global migration entry",
+      "project export icon beside delete button",
+      "single upload card after asynchronous project load",
+      "actual desktop one-click export includes project/chapters/canvas/Agent chat",
+      "overview hides Agent; chapters show exactly one launcher",
+      "expanded Agent and More/history menus leave background clear",
+      "history menu aligns to Agent right edge with quote/delete controls",
+      "direct new chapter save without preview preserves headings/bold/lists",
+      "new chapter immediately appears in chapter list",
+      "fullscreen and minimize restore icon at original top-right location",
+      "launcher no longer overlaps create-canvas button"
+    ]
+  },
+  "freshInstallation": {
+    "passed": true,
+    "unicodeAndSpacePath": true,
+    "bundledRuntime": true
+  },
+  "archiveSha256": "f1962ce24d3a3933f428610a2cce619dfac57bd19013536458a12a2f0911226a",
+  "limitations": [
+    "External model providers require the user’s own configured credentials. No paid model calls were made.",
+    "Clean Windows directories were tested on the current host; all possible hardware and service combinations were not tested."
+  ]
+}

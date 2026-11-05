@@ -31,6 +31,8 @@ if(!$online -and (Test-Path -LiteralPath (Join-Path $FeedRoot 'release.json')) -
     if($localRelease.version -ne $releaseInfo.version){throw 'Local release version mismatch'}
     $sourceRoot=[IO.Path]::GetFullPath($FeedRoot)
 }
+$portablePython=''
+$portableInstaller=''
 $deltaBase=''
 $deltaMode=$false
 if($releaseInfo.delta -and (Test-Path -LiteralPath (Join-Path $InstallRoot 'current.txt'))){
@@ -70,11 +72,34 @@ if($releaseInfo.archive){
     $zip=[IO.Compression.ZipFile]::OpenRead($archivePath)
     try{
         foreach($entry in $zip.Entries){
-            $entryPath=[IO.Path]::GetFullPath((Join-Path $sourceRoot $entry.FullName))
-            if(!$entryPath.StartsWith($sourceRoot+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Invalid archive entry'}
+            if([version]$releaseInfo.version -ge [version]'1.3.19'){
+                if($entry.FullName -match '^[/\\]|(^|[/\\])\.\.($|[/\\])|:'){throw 'Invalid archive entry'}
+            }else{
+                $entryPath=[IO.Path]::GetFullPath((Join-Path $sourceRoot $entry.FullName))
+                if(!$entryPath.StartsWith($sourceRoot+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Invalid archive entry'}
+            }
+        }
+        if([version]$releaseInfo.version -ge [version]'1.3.19'){
+            $bootstrap=Join-Path $cache 'installer-runtime'
+            New-Item -ItemType Directory -Force -Path $bootstrap | Out-Null
+            foreach($entry in $zip.Entries){
+                if($entry.FullName -match '^runtime/python/[^/]+$' -and $entry.FullName -match '\.(exe|dll|pyd|zip|_pth)$'){
+                    $bootFile=Join-Path $bootstrap ([IO.Path]::GetFileName($entry.FullName))
+                    [IO.Compression.ZipFileExtensions]::ExtractToFile($entry,$bootFile,$true)
+                }
+                if($entry.FullName -eq 'backend/desktop-state/portable-install.py'){
+                    [IO.Compression.ZipFileExtensions]::ExtractToFile($entry,(Join-Path $bootstrap 'portable-install.py'),$true)
+                }
+            }
+            $portablePython=Join-Path $bootstrap 'python.exe'
+            $portableInstaller=Join-Path $bootstrap 'portable-install.py'
+            if(!(Test-Path -LiteralPath $portablePython) -or !(Test-Path -LiteralPath $portableInstaller)){throw 'Portable installer runtime missing'}
         }
     }finally{$zip.Dispose()}
-    [IO.Compression.ZipFile]::ExtractToDirectory($archivePath,$sourceRoot)
+    if($portablePython){
+        & $portablePython -I -S $portableInstaller extract --archive $archivePath --root $sourceRoot
+        if($LASTEXITCODE -ne 0){throw 'Release extraction failed. Previous installation preserved.'}
+    }else{[IO.Compression.ZipFile]::ExtractToDirectory($archivePath,$sourceRoot)}
     if($deltaMode){
         foreach($item in $releaseInfo.files){
             if($item.path -in $releaseInfo.delta.paths){continue}
@@ -87,6 +112,15 @@ if($releaseInfo.archive){
 }
 $versionRoot=[IO.Path]::GetFullPath((Join-Path $InstallRoot ('versions\'+$releaseInfo.version)))
 New-Item -ItemType Directory -Force -Path $versionRoot | Out-Null
+if(!$portablePython -and [version]$releaseInfo.version -ge [version]'1.3.19'){
+    $localPython=Join-Path $sourceRoot 'runtime/python/python.exe'
+    $localInstaller=Join-Path $sourceRoot 'backend/desktop-state/portable-install.py'
+    if((Test-Path -LiteralPath $localPython) -and (Test-Path -LiteralPath $localInstaller)){$portablePython=$localPython;$portableInstaller=$localInstaller}
+}
+if($portablePython){
+    & $portablePython -I -S $portableInstaller verify --root $sourceRoot
+    if($LASTEXITCODE -ne 0){throw 'Release validation failed. Previous installation preserved.'}
+}else{
 $validated=0
 foreach($item in $releaseInfo.files){
     if($item.path -notmatch '^(app|runtime|web|backend|plugin-packages)[\\/]' -and $item.path -notin @('release.json','install.ps1','安装或更新.cmd','使用说明.md','update.cmd')){throw 'Release contains a disallowed path'}
@@ -98,10 +132,15 @@ foreach($item in $releaseInfo.files){
     if($validated % 100 -eq 0){Write-Progress -Activity 'Verifying release files' -Status "$validated / $($releaseInfo.files.Count)" -PercentComplete ($validated*100/$releaseInfo.files.Count)}
 }
 Write-Progress -Activity 'Verifying release files' -Completed
+}
 # Close only this per-user installed application. Existing project deployments
 # outside this installation are never selected, and an unclosed window aborts.
 $running=@(Get-Process Yingce -ErrorAction SilentlyContinue | Where-Object {$_.Path -and $_.Path.StartsWith((Join-Path $InstallRoot 'versions')+'\',[StringComparison]::OrdinalIgnoreCase) -and $_.MainWindowHandle -ne 0})
 foreach($process in $running){$null=$process.CloseMainWindow();if(!$process.WaitForExit(15000)){throw 'Please save your work and close Yingce before updating.'}}
+if($portablePython){
+    & $portablePython -I -S $portableInstaller install --root $sourceRoot --destination $versionRoot
+    if($LASTEXITCODE -ne 0){throw 'Portable installation failed. Previous version remains selected.'}
+}else{
 $copied=0
 foreach($item in $releaseInfo.files){
     $copied++
@@ -113,6 +152,7 @@ foreach($item in $releaseInfo.files){
     if((Get-ReleaseFileHash -LiteralPath $target).Hash -ne $item.sha256){throw 'Installed file checksum mismatch'}
 }
 Write-Progress -Activity 'Installing release files' -Completed
+}
 # Restore the captured prompt templates and protocols before activating this version.
 if ($releaseInfo.portableState) {
     if ($releaseInfo.portableState -ne 'backend/desktop-state/apply-state.mjs') {throw 'Invalid state migration entry'}

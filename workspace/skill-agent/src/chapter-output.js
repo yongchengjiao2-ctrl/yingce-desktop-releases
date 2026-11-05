@@ -1,0 +1,45 @@
+import {outputRichText} from './output-rich-text.js';
+import {a as api,o as initRequest} from './request-Dlp4yxtR.js';
+import {r as storageFor,t as initStorage} from './localforage-storage-BDs_z-cE.js';
+import {t as userScope,n as initScope} from './user-scope-CMp2r8yk.js';
+initRequest();initStorage();initScope();
+export function completedTextMessages(messages){return(messages||[]).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string'&&m.content.trim()&&(!m.status||['done','succeeded'].includes(m.status))&&(m.mode||'text')==='text');}
+export function conversationText(conversation){return completedTextMessages(conversation.messages).map(m=>(m.role==='user'?'【用户】':'【影策】')+'\n'+m.content).join('\n\n');}
+export function downloadOutput(text,title='Skill 输出'){
+  const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=title.replace(/[\\/:*?"<>|]/g,'_').slice(0,100)+'.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+const enc=encodeURIComponent;
+const html=outputRichText;
+const plain=value=>new DOMParser().parseFromString(value.replace(/<\/(p|div|h[1-6])>/gi,'</$1>\n').replace(/<br\s*\/?\s*>/gi,'\n'),'text/html').body.textContent||'';
+export function appendChapterOutput(unit,text){const field=unit.screenplayText?'screenplayText':'sourceText',before=unit[field]||'';return{field,before,after:before+(field==='sourceText'?'':before?'\n\n':'')+(field==='sourceText'?html(text):text)};}
+export function projectRows(data){return(data.projects||[]).map(row=>row.project||row).filter(p=>p.id);}
+export async function showChapterSave({text,title='创作内容',conversationId='',messageId='',provenance}){
+  const scope=userScope(),root=document.querySelector('.app-user-workspace')||document.body;
+  if(document.getElementById('yingce-chapter-output-dialog'))return;
+  const el=(tag,label,parent)=>{const n=document.createElement(tag);if(label!=null)n.textContent=label;parent?.append(n);return n;};
+  const d=el('dialog',null,root);d.id='yingce-chapter-output-dialog';d.className='ysa-dialog ysa-output-dialog';let busy=false,preparing=false,plan,loadVersion=0,committed=false;
+  const head=el('header',null,d);el('strong','保存到章节',head);const close=el('button','关闭',head);close.type='button';const dismiss=()=>{if(!busy){d.close();d.remove();}};close.onclick=dismiss;d.oncancel=e=>{e.preventDefault();dismiss();};
+  const body=el('section',null,d);body.className='ysa-dialog-body';const fields=el('div',null,body);fields.className='ysa-output-targets';
+  const project=el('select',null,fields),chapter=el('select',null,fields),name=el('input',null,fields);project.setAttribute('aria-label','保存到项目');chapter.setAttribute('aria-label','保存到章节');name.setAttribute('aria-label','新章节名称');name.placeholder='新章节名称';name.value=title;name.id='ysa-new-chapter-name';const nameLabel=el('label','新章节名称',fields);nameLabel.htmlFor=name.id;name.before(nameLabel);
+  const option=(select,value,label)=>{const n=el('option',label,select);n.value=value;return n;};option(project,'','选择项目');option(chapter,'new','新建章节');
+  el('p','可编辑下方内容，保留需要的 Skill 成果或聊天记录。',body);
+  const content=el('textarea',null,body);content.setAttribute('aria-label','保存内容');content.rows=10;content.value=text;
+  const preview=el('div','选择项目和章节后，点击预览。',body),status=el('p','正在读取项目…',body);status.setAttribute('role','status');preview.className='ysa-rich-preview';preview.hidden=true;
+  const footer=el('footer',null,d),previewButton=el('button','预览',footer),save=el('button','确认保存',footer);previewButton.type=save.type='button';save.className='ysa-primary';save.disabled=true;
+  const error=e=>{status.textContent=e.message||String(e);status.setAttribute('role','alert');};
+  const invalidate=()=>{plan=null;save.disabled=!project.value||!content.value.trim();preview.hidden=true;name.hidden=chapter.value!=='new';nameLabel.hidden=name.hidden;status.textContent=chapter.value==='new'?'将创建新章节，正文保留排版。':'将追加到所选章节末尾，保留原有内容。';};
+  content.oninput=name.oninput=chapter.onchange=invalidate;
+  const checkScope=()=>{if(scope!==userScope())throw Error('账号已切换，请重新打开保存窗口');};
+  project.onchange=async()=>{const request=++loadVersion;invalidate();chapter.replaceChildren();option(chapter,'new','新建章节');name.hidden=false;nameLabel.hidden=false;if(!project.value)return;try{const data=await api.get('/projects/'+enc(project.value)+'/units');if(request!==loadVersion)return;for(const u of data.units||[])if(u.kind==='chapter')option(chapter,u.id,'追加到 · '+u.title);status.textContent='';}catch(e){error(e);}};
+  previewButton.onclick=async(show=true)=>{if(busy||committed)return;try{checkScope();if(!project.value||!content.value.trim())throw Error('请选择项目并填写保存内容');const p=project.value,c=chapter.value,t=content.value;if(c==='new'){if(!name.value.trim())throw Error('请填写新章节名称');plan={projectId:p,chapterId:'',title:name.value.trim(),after:html(t),field:'sourceText'};preview.textContent='新建章节：'+plan.title+'\n\n'+t;}else{const res=await api.get('/projects/'+enc(p)+'/units/'+enc(c));if(p!==project.value||c!==chapter.value||t!==content.value)throw Error('选择已变化，请重新预览');plan={projectId:p,chapterId:c,title:(res.unit||res).title,...appendChapterOutput(res.unit||res,t)};preview.textContent='追加到：'+plan.title+'\n\n'+(plan.field==='sourceText'?plain(plan.after):plan.after);}if(plan.field==='sourceText')preview.innerHTML=plan.after;preview.hidden=show===false;save.disabled=false;status.textContent='预览完成，确认后写入章节。';}catch(e){plan=null;save.disabled=true;error(e);}};
+  save.onclick=async()=>{if(busy||preparing||committed)return;if(!plan){preparing=true;try{await previewButton.onclick(false);}finally{preparing=false;}}if(!plan)return;busy=true;save.disabled=true;project.disabled=chapter.disabled=name.disabled=content.disabled=previewButton.disabled=true;const record={id:crypto.randomUUID(),...plan,mode:plan.chapterId?'append':'new',conversationId,messageId,provenance,createdAt:new Date().toISOString(),status:'pending'};const store=storageFor(scope),key='yingce-chapter-outputs-v1';let journal;
+    try{checkScope();journal=JSON.parse(await store.getItem(key)||'[]');journal.push(record);await store.setItem(key,JSON.stringify(journal));
+      if(plan.chapterId){let editor;window.dispatchEvent(new CustomEvent('yingce-agent-editor-request',{detail:{projectId:plan.projectId,chapterId:plan.chapterId,action:'snapshot',done:v=>editor=v}}));if(editor?.dirty)throw Error('请先保存章节中的手动修改，再保存聊天内容');const path='/projects/'+enc(plan.projectId)+'/units/'+enc(plan.chapterId),r=await api.get(path);if(((r.unit||r)[plan.field]||'')!==plan.before)throw Error('章节已有修改，请再次点击保存读取最新内容');await api.patch(path,{[plan.field]:plan.after,...plan.field==='screenplayText'?{expectedScreenplayText:plan.before}:{}});committed=true;const check=await api.get(path);if(((check.unit||check)[plan.field]||'')!==plan.after)throw Error('保存回读不一致，请到章节中核对');}
+      else{const base='/projects/'+enc(plan.projectId)+'/units',existing=await api.get(base),position=Math.max(-1,...(existing.units||[]).map(u=>Number(u.position)||0))+1;const r=await api.post(base,{kind:'chapter',title:plan.title,sourceText:plan.after,position});record.chapterId=(r.unit||r).id;if(!record.chapterId)throw Error('新建章节未返回编号，尚未确认保存成功');committed=true;await store.setItem(key,JSON.stringify(journal));const path=base+'/'+enc(record.chapterId);let check=await api.get(path);if(((check.unit||check).sourceText||'')!==plan.after){await api.patch(path,{sourceText:plan.after});check=await api.get(path);}if(((check.unit||check).sourceText||'')!==plan.after)throw Error('章节已创建，但正文回读不一致，请打开章节核对');}
+      record.status='succeeded';await store.setItem(key,JSON.stringify(journal));window.dispatchEvent(new CustomEvent('yingce-agent-editor-saved',{detail:{projectId:plan.projectId,chapterId:record.chapterId,field:plan.field,content:plan.after}}));status.textContent='已保存到章节：'+plan.title;const link=el('a','打开章节',status);link.href='/projects/'+enc(plan.projectId)+'/chapters/'+enc(record.chapterId);link.style.marginLeft='12px';save.textContent='已保存';save.disabled=true;close.textContent='完成';
+    }catch(e){if(journal){record.status=committed?'needs-review':'failed';record.error=e.message;await store.setItem(key,JSON.stringify(journal)).catch(()=>{});}error(e);plan=null;save.disabled=committed;}
+    finally{busy=false;if(!committed)project.disabled=chapter.disabled=name.disabled=content.disabled=previewButton.disabled=false;}
+  };
+  d.showModal();
+  try{const seen=new Set();for(let page=1;page<=100;page++){const data=await api.get('/projects',{params:{page,pageSize:100}}),rows=projectRows(data);let added=0;for(const p of rows)if(!seen.has(p.id)){seen.add(p.id);added++;option(project,p.id,p.name);}if(rows.length<100||!added)break;}status.textContent=seen.size?'':'请先创建一个短剧项目，再保存内容。';const match=/^\/projects\/([^/]+)/.exec(location.pathname);const preferred=match?decodeURIComponent(match[1]):seen.size===1?[...seen][0]:'';if(preferred&&seen.has(preferred)){project.value=preferred;await project.onchange();}}catch(e){error(e);}
+}

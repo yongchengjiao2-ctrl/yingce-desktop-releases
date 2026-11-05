@@ -1,0 +1,5 @@
+node_modules/
+backups/
+preview-output/
+
+/desktop-main.current.cjs
