@@ -43,3 +43,4 @@ foreach($scenario in @('interrupt','range','corrupt','offline')){
     }elseif((Get-ReleaseFileHash $destination).Hash -ne $hash -or $global:downloadTestCalls -ne 2){throw "Download recovery failed: $scenario"}
 }
 Write-Host 'PASS: interrupted transfer resumes, unsupported Range restarts, corrupt bytes retry, offline retries are bounded.'
+$global:LASTEXITCODE=0

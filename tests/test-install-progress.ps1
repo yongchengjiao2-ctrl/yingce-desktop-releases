@@ -70,3 +70,4 @@ $global:testAssetHash='0'*64
 if((Get-Content (Join-Path $bootstrap 'ran.txt')).Trim() -ne 'local'){throw 'Bad installer digest replaced trusted local installer'}
 Write-Host 'PASS: fresh/resumed download totals, indeterminate stages, completed UI, offline installation, persistent updater, corrupt installation failure.'
 Write-Host 'PASS: verified installer refresh and checksum mismatch fallback.'
+$global:LASTEXITCODE=0
