@@ -145,7 +145,7 @@ def validate_metadata(z):
 
 
 def export_bundle(local, user, frontend, output, project_id=None):
-    local = Path(local)
+    local = Path(local).resolve()
     # SQLite backup API includes WAL and yields a consistent read snapshot.
     with tempfile.TemporaryDirectory() as tmp:
         source = connect((local / 'data/open_ai_canvas.db').resolve().as_uri() + '?mode=ro')
@@ -234,7 +234,7 @@ def export_bundle(local, user, frontend, output, project_id=None):
                 path = safe_path(local / 'data/resources', row['object_key'])
                 for variant in path.parent.glob(path.name + '*'):
                     if variant.is_file():
-                        files['resources/' + variant.relative_to(local / 'data/resources').as_posix()] = variant
+                        files['resources/' + variant.resolve().relative_to((local / 'data/resources').resolve()).as_posix()] = variant
         for row in chosen.get('skill_versions', []):
             key = row.get('package_key')
             if not key:
@@ -245,7 +245,7 @@ def export_bundle(local, user, frontend, output, project_id=None):
                 missing.append('缺少技能包：' + row['id'])
             for p in paths:
                 if p.is_file():
-                    files['skill-packages/' + p.relative_to(local / 'data/skill-packages').as_posix()] = p
+                    files['skill-packages/' + p.resolve().relative_to((local / 'data/skill-packages').resolve()).as_posix()] = p
         if missing:
             raise ValueError('不能生成完整迁移包。' + '；'.join(missing[:8]) + '。请先补齐或下载这些资源。')
         payload = {'tables': chosen, 'frontend': {k: clean(v) for k, v in frontend.items() if k in FRONT_KEYS}}
@@ -283,7 +283,7 @@ def export_bundle(local, user, frontend, output, project_id=None):
 
 
 def import_bundle(local, user, archive):
-    local = Path(local)
+    local = Path(local).resolve()
     # Validate archive and every checksum before changing the live database.
     with zipfile.ZipFile(archive) as z, tempfile.TemporaryDirectory(dir=local / 'data') as tmp:
         m, payload = validate_metadata(z)
