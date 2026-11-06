@@ -1,0 +1,33 @@
+name: Verify and publish installer progress
+on:
+  push:
+    branches: [main]
+    paths: ['install.ps1', 'installer-progress-ui.ps1', 'test-download.ps1', 'tests/**', '.github/workflows/installer-progress.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify embedded window matches source
+        shell: pwsh
+        run: |
+          python tests/embed-progress.py
+          git diff --exit-code -- install.ps1
+      - name: Verify download recovery
+        shell: powershell
+        run: ./test-download.ps1
+      - name: Verify progress and offline installation
+        shell: powershell
+        run: ./tests/test-install-progress.ps1
+      - name: Publish standalone installer to latest release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag=gh api repos/${{ github.repository }}/releases/latest --jq .tag_name
+          if ($LASTEXITCODE -ne 0) {throw 'Unable to resolve latest release'}
+          gh release upload $tag install.ps1 --clobber --repo ${{ github.repository }}
+          if ($LASTEXITCODE -ne 0) {throw 'Installer upload failed'}

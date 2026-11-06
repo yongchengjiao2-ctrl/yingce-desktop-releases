@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $tokens=$null;$parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($Installer,[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Installer syntax is invalid'}
-foreach($name in @('Receive-ReleaseFile','Get-ReleaseFileHash')){
+foreach($name in @('Set-InstallProgress','Receive-ReleaseFile','Get-ReleaseFileHash')){
     $node=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)
     Invoke-Expression $node.Extent.Text
 }
