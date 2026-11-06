@@ -20,6 +20,7 @@
 .ysa-content{white-space:pre-wrap;line-height:1.8;margin-top:8px;user-select:text}
 .ysa-compose{padding:12px;border-top:1px solid var(--border,#ddd);background:var(--background,#fff);max-height:48%;overflow:auto}
 .ysa-compose textarea,.ysa-dialog textarea{width:100%;font:inherit;line-height:1.6;border:1px solid var(--border,#ddd);border-radius:12px;background:var(--background,#fff);color:inherit;padding:12px;resize:vertical;min-height:80px}
+.ysa-material-editor label{display:block;margin-block:12px;color:var(--ysa-ink);font-size:13px;line-height:1.6}.ysa-material-editor label>input:not([type=checkbox]),.ysa-material-editor label>textarea,.ysa-material-editor label>select{display:block;width:100%;box-sizing:border-box;margin-top:6px}.ysa-tools>label{font-size:11px;white-space:nowrap;color:var(--ysa-ink)}.ysa-panel .ysa-tools{flex-wrap:wrap}
 .ysa-tools,.ysa-actions,.ysa-chips{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px}
 .ysa-tools select{max-width:190px;font-size:12px}
 .ysa-chip{font-size:11px!important;max-width:100%;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}

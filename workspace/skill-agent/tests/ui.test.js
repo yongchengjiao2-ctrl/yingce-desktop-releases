@@ -4,6 +4,8 @@ import {readFile} from 'node:fs/promises';
 import {Window} from 'happy-dom';
 import {deleteCreationConversation,filterDeletedConversations} from '../src/creation-history-storage.js';
 import * as core from '../src/skill-agent-core.js';
+import {materialStore,projectContext} from '../src/confirmed-materials.js';
+import {openMaterials,openContextPreview} from '../src/confirmed-materials-ui.js';
 import {floatingAgent,iconButton} from '../src/floating-agent.js';
 import {composeButton,composerIcon} from '../src/composer-icons.js';
 
@@ -20,6 +22,7 @@ test('conversation integration: native history, skill provenance, two turns, res
   const noop=()=>{};
   const services={deleteCreationConversation,filterDeletedConversations,api,initRequest:noop,initSkills:noop,addedSkills:async()=>({skills:[{skillId:'writer',skillName:'编剧技能',version:'1',isAdded:true}]}),installSkill:noop,addSkill:noop,skillRuntime:{prepare:async args=>({prompt:args.prompt,metadata:{skillIds:args.selectedSkillIds,skillVersions:[{skillId:'writer',version:'1'}]}})},initSkillRuntime:noop,configStore:{getState:()=>({config:{textModels:['test-model'],textModel:'test-model'}}),subscribe:noop},initConfig:noop,generate:async args=>{tasks.push(args);args.onTextDelta('这是验收剧本');return{text:'这是验收剧本'};},initGeneration:noop,storageFor:()=>({getItem:async k=>data.get(k),setItem:async(k,v)=>data.set(k,v)}),initStorage:noop,userScope:()=> 'test-user',initScope:noop,canvasStore:{getState:()=>({projects:[]})},initCanvas:noop,...core};
   let controls;
+  Object.assign(services,{materialStore,projectContext,openMaterials,openContextPreview});
   services.mountAgentControls=(host,read)=>{controls=read;return{update:()=>{}};};
   services.outputRichText=text=>'<p>'+text+'</p>';
   services.startThemedSelects=()=>{};
@@ -67,7 +70,7 @@ test('conversation integration: native history, skill provenance, two turns, res
   assert.equal(tasks[0].config.model,'channel::gemini-4-argon');
   controls().onModelChange('channel::gemini-3.8-flash');
   document.querySelector('[aria-label="Agent 对话输入"]').value='加一句台词';await app.send();
-  assert.equal(tasks[1].textHistory.length,2);assert.equal(app.current().messages.length,4);
+  assert.equal(tasks[1].textHistory.length,0);assert.match(tasks[1].prompt,/当前未确认工作稿/);assert.match(tasks[1].prompt,/这是验收剧本/);assert.equal(app.current().messages.length,4);
   assert.equal(tasks[1].config.model,'channel::gemini-3.8-flash');
   await app.load();assert.equal(app.current().messages.length,4);
   await app.openWrite(app.current().messages[3],app.current());await click('生成预览');

@@ -31,6 +31,13 @@ class BundleTest(unittest.TestCase):
   resource=self.local/'data/resources/users/a/test.txt';resource.parent.mkdir(parents=True);resource.write_text('实际素材',encoding='utf8')
   self.front={'yingce-skill-agent-v1':[{'id':'session-123456789','projectId':'project-123456789','messages':[{'id':'message-123456789','content':'聊天历史 **加粗**'}]}]}
  def tearDown(self):self.tmp.cleanup()
+ def test_confirmed_materials_round_trip(self):
+  self.front['yingce-confirmed-materials-v1']=[{'id':'material-123456789','projectId':'project-123456789','type':'character','title':'女主','content':'已确认人物设定','revision':2,'enabled':True,'revisions':[{'revision':1,'content':'上一版设定'}]}]
+  archive=self.root/'materials.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive,project_id='project-123456789')
+  result=bundle.import_bundle(self.target,'target-user',archive)
+  item=result['frontend']['yingce-confirmed-materials-v1'][0]
+  self.assertEqual(item['content'],'已确认人物设定');self.assertEqual(item['revisions'][0]['content'],'上一版设定')
+  self.assertNotEqual(item['projectId'],'project-123456789');self.assertEqual(item['revision'],2)
  def test_round_trip_twice_preserves_content_and_remaps(self):
   archive=self.root/'project.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive)
   with zipfile.ZipFile(archive) as z:

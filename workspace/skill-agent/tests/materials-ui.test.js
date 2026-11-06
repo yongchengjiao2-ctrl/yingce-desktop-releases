@@ -1,0 +1,21 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {Window} from 'happy-dom';
+import {openMaterials,openContextPreview} from '../src/confirmed-materials-ui.js';
+test('adoption requires editing and explicit confirmation; context preview discloses what will be sent',async()=>{
+  const w=new Window();globalThis.document=w.document;
+  const el=(tag,text,parent,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;parent?.append(n);return n;};
+  const tasks=[];const button=(parent,text,fn)=>{const b=el('button',text,parent);b.onclick=()=>{const p=fn();tasks.push(p);return p;};return b;};
+  const dialog=title=>{const body=el('section',null,document.body);body.dataset.title=title;return{body,close:()=>body.remove()};};
+  let writes=[],saved=0;
+  const store={list:async()=>[],save:async v=>writes.push(v)};
+  await openMaterials({store,projectId:'p',dialog,el,button,seed:{content:'整段候选回复'},onSaved:async()=>saved++,assertActive(){}});
+  assert.equal(writes.length,0);
+  document.querySelector('input:not([type=checkbox])').value='人物设定';
+  document.querySelector('textarea').value='仅确认的人物事实';
+  [...document.querySelectorAll('button')].find(b=>b.textContent==='确认采用').click();await Promise.all(tasks);
+  assert.equal(saved,1);assert.equal(writes[0].content,'仅确认的人物事实');
+  await openContextPreview({store,projectId:'p',session:{messages:[],references:[]},prompt:'继续',dialog,el});
+  assert.match(document.body.textContent,/历史聊天不自动发送/);
+  await w.happyDOM.abort();
+});

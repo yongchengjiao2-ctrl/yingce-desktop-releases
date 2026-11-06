@@ -1,4 +1,6 @@
 import {deleteCreationConversation,filterDeletedConversations} from './creation-history-storage.js';
+import {materialStore,projectContext} from './confirmed-materials.js';
+import {openMaterials,openContextPreview} from './confirmed-materials-ui.js';
 import {composeButton,composerIcon} from './composer-icons.js';
 import {agentTooltips} from './agent-tooltips.js';
 import {projectSidebar} from './project-sidebar.js';
@@ -22,6 +24,11 @@ import {newSession, uid, buildContext, planWrite, assertUnchanged, importedSessi
 initRequest(); initSkills(); initSkillRuntime(); initConfig(); initGeneration(); initStorage(); initScope(); initCanvas();
 const KEY = 'yingce-skill-agent-v1';
 let scope = userScope(), sessions = [], currentId = '', skills = [], busy = false, controller, panel, status, list, input, sessionPicker, skillPicker, modelPicker, chips;
+const knowledgeStores=new Map();
+const knowledgeStore=()=>{if(!knowledgeStores.has(scope))knowledgeStores.set(scope,materialStore(storageFor(scope),scope));return knowledgeStores.get(scope);};
+const materialProject=()=>current()?.projectId||route().projectId;
+const assertMaterialAccess=()=>{if(userScope()!==scope)throw Error('账号已切换，请重新打开助手');if(busy)throw Error('请先等待或停止当前生成');};
+async function editMaterials(seed){const projectId=materialProject(),openedScope=scope;return openMaterials({store:knowledgeStore(),projectId,dialog,el,button,seed,assertActive:()=>{assertMaterialAccess();if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新打开资料库');},onSaved:async()=>{note('已确认资料已保存，后续请求按资料库组装');}});}
 const updateProjectSidebar=projectSidebar();
 const messageViews=new Map();
 let latestAnchor;
@@ -124,6 +131,7 @@ function render() {
       const actions = el('div', null, card, 'ysa-actions');
       button(actions, '复制', async () => { await navigator.clipboard.writeText(m.content); note('已复制'); });
       if (m.content) {button(actions, '保存到章节', () => showChapterSave({text:m.content,title:s.title,conversationId:s.id,messageId:m.id,provenance:m.provenance}));button(actions,'下载内容',()=>downloadOutput(m.content,s.title));}
+      if (m.content&&['succeeded','done'].includes(m.status))button(actions,'确认采用',()=>editMaterials({content:m.content,sourceMessageId:m.id,sourceConversationId:s.id}));
       if (m.status !== 'running') button(actions, '重新生成', () => send(m.replyTo,m.id));
 
     }
@@ -132,6 +140,7 @@ function render() {
   panel.querySelector('[data-send]').disabled = busy; panel.querySelector('[data-stop]').disabled = !busy;
   panel.querySelector('[data-send]').hidden = busy;panel.querySelector('[data-stop]').hidden = !busy;
   input.disabled = busy; sessionPicker.disabled = busy; modelPicker.disabled = busy;
+  const draftToggle=panel.querySelector('[data-working-draft]');if(draftToggle){draftToggle.disabled=busy;draftToggle.checked=current()?.includeWorkingDraft!==false;}
   composerBehavior?.refresh();
   if(latestAnchor)positionLatest();else list.scrollTop=preservedScroll;
 }
@@ -212,11 +221,11 @@ async function send(replyTo,retryMessageId) {
   const selectedModel = s.model || modelPicker.value; if (!selectedModel) throw Error('请选择一个已配置协议的文字模型');
   const selected = s.skillIds || []; if (selected.some(id => !skills.some(x => x.skillId === id))) throw Error('已选技能不可用，请重新选择技能');
   const past = original ? s.messages.slice(0, s.messages.indexOf(original)) : s.messages;
-  const context = buildContext(s.references || [], past, prompt);
+  let context;
   // Load skill files before creating a model task. Missing dependencies must stop here.
   busy = true; render(); note('正在加载本轮技能…');
   let prepared;
-  try { prepared = await skillRuntime.prepare({profile:'creation', prompt:context.prompt, skills, selectedSkillIds:selected}); }
+  try { context=projectContext(await knowledgeStore().list(),s.projectId||route().projectId,s.references||[],past,prompt,s.includeWorkingDraft!==false);prepared = await skillRuntime.prepare({profile:'creation', prompt:context.prompt, skills, selectedSkillIds:selected}); }
   catch (e) { busy = false; render(); throw e; }
   const config = {...configStore.getState().config, model:selectedModel, textModel:selectedModel, taskWorkflowProvider:'model'};
   latestAnchor=null;
@@ -224,11 +233,12 @@ async function send(replyTo,retryMessageId) {
   if (!original) s.messages.push(user);
   const answer = {id:uid(),role:'assistant',content:'',replyTo:original?.id || user.id,status:'running',createdAt:now(),model:selectedModel,provenance:{...prepared.metadata,references:(s.references || []).map(r => ({id:r.id,label:r.label,capturedAt:r.capturedAt}))}};
   answer.provenance.contextWindow={includedTurns:context.includedTurns||0,omittedTurns:context.omittedTurns||0};
+  answer.provenance.confirmedMaterials=context.materials;answer.provenance.workingDraftId=context.workingDraftId;
   if(retryMessageId)s.messages=s.messages.filter(m=>m.id!==retryMessageId||m.role!=='assistant');
   s.messages.push(answer); s.model = selectedModel; if (s.title === '新对话') s.title = prompt.slice(0, 28); s.updatedAt = now();
   busy = true; controller = new AbortController(); lastTask = null; let checkpoint;
   try {
-    await persist(); input.value = ''; input.blur(); render(); note(context.omittedTurns ? `正在调用模型：本轮保留最近 ${context.includedTurns} 轮，较早 ${context.omittedTurns} 轮未发送；完整聊天记录仍保留。` : '已保存对话，正在调用模型…');
+    await persist(); input.value = ''; input.blur(); render(); note(`正在调用模型：已确认资料 ${context.materials.length} 项，引用 ${context.referenceCount} 项，工作稿 ${context.workingDraftId?1:0} 份；历史聊天不自动发送。`);
     const result = await generate({projectId:s.projectId || undefined,mode:'text',prompt:prepared.prompt,config,textHistory:context.history,signal:controller.signal,streamText:true,enableThinking:false,clientOperationId:answer.id,metadata:{source:'skill-agent',conversationId:s.id,messageId:answer.id,...prepared.metadata},onTaskUpdate: task => { lastTask = task; answer.taskId = task.id; },onTextDelta: text => { answer.content = text; messageViews.get(answer.id)?.update(answer); if (!checkpoint) checkpoint = setTimeout(()=>{checkpoint=null;persist().catch(showError);},1000); }});
     if (!result.text?.trim()) throw Error('模型没有返回正文'); answer.content = result.text; answer.status = 'succeeded'; note('生成完成，已保存到当前会话');
   } catch (e) { answer.status = controller.signal.aborted ? 'stopped' : 'failed'; answer.error = e.message; note(answer.status === 'stopped' ? '已停止，已收到的内容保留' : e.message); }
@@ -329,6 +339,9 @@ async function openAgent() {
   const tools = el('div',null,compose,'ysa-tools');
   modelPicker = el('select',null,tools); modelPicker.setAttribute('aria-label','Agent 文字模型'); modelPicker.onchange = async () => { current().model = modelPicker.value; await persist(); };
   const pickerHost=el('div',null,tools,'ysa-picker-host');composeButton(button(tools,'',openReferences,'ysa-reference-trigger'),'reference','参考内容');
+  button(tools,'资料库',()=>editMaterials());
+  button(tools,'本轮上下文',()=>{assertMaterialAccess();const openedScope=scope,projectId=materialProject();return openContextPreview({store:knowledgeStore(),projectId,session:current(),prompt:input.value,dialog,el,assertActive:()=>{if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新查看上下文');}});});
+  const draftLabel=el('label','带入最近回复',tools);const draftCheck=el('input',null,draftLabel);draftCheck.type='checkbox';draftCheck.checked=current()?.includeWorkingDraft!==false;draftCheck.dataset.workingDraft='';draftCheck.onchange=async()=>{assertMaterialAccess();current().includeWorkingDraft=draftCheck.checked;await persist();};
   const details = el('details',null,compose); el('summary','选择技能',details); skillPicker = el('div',null,details,'ysa-skills');
   const actions = el('div',null,tools,'ysa-send-actions'); composeButton(button(actions,'',() => send(), 'ysa-primary'),'send','发送').dataset.send = ''; composeButton(button(actions,'',stop),'stop','停止').dataset.stop = '';
   status = el('div','',compose,'ysa-status'); status.setAttribute('role','status');status.hidden=true;

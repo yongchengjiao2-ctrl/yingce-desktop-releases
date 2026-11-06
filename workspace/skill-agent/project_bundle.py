@@ -21,7 +21,7 @@ agent_profiles cloud_agent_executions cloud_agent_event_records cloud_agent_mess
 cloud_agent_pi_sessions creation_runs yingce_extraction_observations resources style_profiles
 skills skill_versions skill_files user_skill_states skill_library_categories'''.split()
 OWNERS = {'user_id', 'owner_id', 'author_user_id', 'created_by'}
-FRONT_KEYS = {'yingce-skill-agent-v1', 'creation-conversations-v1', 'yingce-chapter-outputs-v1', 'yingce-creation-skill-selections-v1'}
+FRONT_KEYS = {'yingce-skill-agent-v1', 'creation-conversations-v1', 'yingce-chapter-outputs-v1', 'yingce-creation-skill-selections-v1', 'yingce-confirmed-materials-v1'}
 SECRET = re.compile(r'(api[_-]?keys?|secret[_-]?key|authorization|password|credentials?|access[_-]?token|refresh[_-]?token|^token$|^headers$)', re.I)
 
 
