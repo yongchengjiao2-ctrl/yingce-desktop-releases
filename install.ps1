@@ -2,11 +2,35 @@
 $ErrorActionPreference='Stop'
 $online=$FeedRoot -match '^https://'
 if($FeedRoot -match '^https?://' -and !$online){throw 'Online updates require HTTPS'}
-function Receive-ReleaseFile([string]$Name,[string]$Destination){
+function Receive-ReleaseFile([string]$Name,[string]$Destination,[string]$ExpectedHash=''){
     if($online){
         $url=$FeedRoot.TrimEnd('/')+'/'+[Uri]::EscapeDataString($Name)
         [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri $url -OutFile $Destination -UseBasicParsing
+        $curl=Get-Command curl.exe -ErrorAction SilentlyContinue
+        for($attempt=1;$attempt -le 5;$attempt++){
+            try{
+                if($curl){
+                    $downloadArgs=@('--fail','--location','--show-error','--silent','--proto','=https','--proto-redir','=https','--connect-timeout','30','--max-time','1800','--speed-limit','1024','--speed-time','60','--output',$Destination)
+                    if($ExpectedHash -and (Test-Path -LiteralPath $Destination)){$downloadArgs+=@('--continue-at','-')}
+                    & $curl.Source @downloadArgs $url
+                    $downloadExit=$LASTEXITCODE
+                    # Servers without Range support require a fresh transfer.
+                    if($downloadExit -in @(33,36) -and (Test-Path -LiteralPath $Destination)){Remove-Item -LiteralPath $Destination -Force}
+                    if($downloadExit -ne 0){throw "Download transport failed ($downloadExit)"}
+                }else{
+                    Invoke-WebRequest -Uri $url -OutFile $Destination -UseBasicParsing -TimeoutSec 1800
+                }
+                if($ExpectedHash -and (Get-ReleaseFileHash $Destination).Hash -ne $ExpectedHash){
+                    Remove-Item -LiteralPath $Destination -Force
+                    throw 'Downloaded archive checksum mismatch'
+                }
+                return
+            }catch{
+                if($attempt -eq 5){throw "Unable to download $Name after 5 attempts. Previous installation is unchanged. Check the network and run the updater again; partial archives resume automatically."}
+                Write-Host "Download interrupted; retrying $Name ($attempt/5)..."
+                Start-Sleep -Seconds ([Math]::Min($attempt*2,10))
+            }
+        }
     }else{Copy-Item -LiteralPath (Join-Path $FeedRoot $Name) -Destination $Destination -Force}
 }
 function Get-ReleaseFileHash([string]$LiteralPath){
@@ -62,7 +86,7 @@ if($releaseInfo.archive){
     $archivePath=Join-Path $cache $releaseInfo.archive
     if(!(Test-Path -LiteralPath $archivePath) -or (Get-ReleaseFileHash -LiteralPath $archivePath).Hash -ne $releaseInfo.archiveSha256){
         Write-Host 'Downloading the release archive...'
-        Receive-ReleaseFile $releaseInfo.archive ($archivePath+'.partial')
+        Receive-ReleaseFile $releaseInfo.archive ($archivePath+'.partial') $releaseInfo.archiveSha256
         if((Get-ReleaseFileHash -LiteralPath ($archivePath+'.partial')).Hash -ne $releaseInfo.archiveSha256){throw 'Archive checksum mismatch. Previous installation was preserved.'}
         Move-Item -LiteralPath ($archivePath+'.partial') -Destination $archivePath -Force
     }
