@@ -1,4 +1,6 @@
 import {deleteCreationConversation,filterDeletedConversations} from './creation-history-storage.js';
+import {reconcileMessages} from './agent-message-list.js';
+import {referencePicker} from './reference-picker.js';
 import {materialStore,projectContext} from './confirmed-materials.js';
 import {openMaterials,openContextPreview} from './confirmed-materials-ui.js';
 import {composeButton,composerIcon} from './composer-icons.js';
@@ -28,7 +30,7 @@ const knowledgeStores=new Map();
 const knowledgeStore=()=>{if(!knowledgeStores.has(scope))knowledgeStores.set(scope,materialStore(storageFor(scope),scope));return knowledgeStores.get(scope);};
 const materialProject=()=>current()?.projectId||route().projectId;
 const assertMaterialAccess=()=>{if(userScope()!==scope)throw Error('账号已切换，请重新打开助手');if(busy)throw Error('请先等待或停止当前生成');};
-async function editMaterials(seed){const projectId=materialProject(),openedScope=scope;return openMaterials({store:knowledgeStore(),projectId,dialog,el,button,seed,assertActive:()=>{assertMaterialAccess();if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新打开资料库');},onSaved:async()=>{note('已确认资料已保存，后续请求按资料库组装');}});}
+async function editMaterials(seed){const projectId=materialProject(),openedScope=scope;return openMaterials({store:knowledgeStore(),projectId,dialog:title=>dialog(title,panel?.querySelector('[data-library]')),el,button,seed,assertActive:()=>{assertMaterialAccess();if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新打开资料库');},onSaved:async()=>{note('已确认资料已保存，后续请求按资料库组装');}});}
 const updateProjectSidebar=projectSidebar();
 const messageViews=new Map();
 let latestAnchor;
@@ -105,6 +107,7 @@ function renderModels() {
 function renderChips() {
   if (!chips) return; chips.replaceChildren();
   const s = current(); if (!s) return;
+  const trigger=panel?.querySelector('[data-reference]');if(trigger){const count=(s.references||[]).length;trigger.setAttribute('aria-pressed',String(count>0));trigger.setAttribute('aria-description',`已选 ${count} 项参考内容`);const label=trigger.querySelector('.ysa-control-label');if(label)label.textContent=count?`引用 · ${count}`:'引用';}
   for (const id of nativeControls ? [] : s.skillIds || []) button(chips, '技能：' + (skills.find(x => x.skillId === id)?.skillName || id) + ' ×', async () => { if (busy) return; s.skillIds = s.skillIds.filter(x => x !== id); await persist(); renderSkills(); renderChips(); }, 'ysa-chip');
   for(const r of s.references||[]){const chip=el('span',null,chips,'ysa-reference-chip');const preview=button(chip,'',()=>{const d=dialog('引用内容 · '+r.label);el('pre',r.text,d.body);},'ysa-reference-preview');preview.append(composerIcon('file'));el('span',r.label,preview);preview.setAttribute('aria-label','查看引用：'+r.label);const remove=button(chip,'',async()=>{if(busy)return;s.references=s.references.filter(x=>x.id!==r.id);await persist();renderChips();},'ysa-reference-remove');remove.append(composerIcon('close'));remove.setAttribute('aria-label','移除引用：'+r.label);remove.dataset.ysaTip='移除引用';remove.disabled=busy;}
 
@@ -116,44 +119,52 @@ function render() {
   for (const s of [...sessions].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) option(sessionPicker, s.id, (s.projectId === projectId && projectId ? '本项目 · ' : s.projectId ? '项目会话 · ' : '创作 · ') + s.title);
   sessionPicker.value = currentId;
   if(sessionTitle&&!editingTitle){sessionTitle.textContent=current()?.title||'新对话';sessionTitle.title='点击修改对话名称';}
-  const preservedScroll=list.scrollTop,heights=new Map([...list.querySelectorAll(':scope > article')].map(c=>[c.dataset.messageId,c.getBoundingClientRect().height]));
-  for(const view of messageViews.values())view.unmount();messageViews.clear();
-  list.replaceChildren();
+  const preservedScroll=list.scrollTop;
   const s = current();
   list.classList.toggle('ysa-empty',!s?.messages.length);
-  if (!s?.messages.length) { el('h3', '和技能一起创作', list); el('p', '选择技能，引用章节、人物设定或之前的聊天，讨论满意后再写入章节。', list, 'ysa-muted'); }
-  for (const m of s?.messages || []) {
-    const card = el('article', null, list, 'ysa-message ysa-' + m.role);card.dataset.messageId=m.id;if(heights.get(m.id))card.style.minHeight=heights.get(m.id)+'px';
+  reconcileMessages(list,messageViews,s?.messages||[],m=>{
+    const card=el('article',null,null,'ysa-message ysa-'+m.role);card.dataset.messageId=m.id;
     const nativeHost=el('div',null,card,'ysa-native-message');
-    let firstLayout=true;messageViews.set(m.id,mountNativeMessage(nativeHost,m,()=>send(m.replyTo,m.id),()=>{if(latestAnchor)positionLatest();else if(firstLayout)list.scrollTop=preservedScroll;firstLayout=false;card.style.minHeight='';}));
-    if (m.role === 'assistant') {
-      if (m.provenance) { const details = el('details', null, card); el('summary', '本轮技能与引用', details); el('pre', JSON.stringify(m.provenance, null, 2), details); }
-      const actions = el('div', null, card, 'ysa-actions');
-      button(actions, '复制', async () => { await navigator.clipboard.writeText(m.content); note('已复制'); });
-      if (m.content) {button(actions, '保存到章节', () => showChapterSave({text:m.content,title:s.title,conversationId:s.id,messageId:m.id,provenance:m.provenance}));button(actions,'下载内容',()=>downloadOutput(m.content,s.title));}
-      if (m.content&&['succeeded','done'].includes(m.status))button(actions,'确认采用',()=>editMaterials({content:m.content,sourceMessageId:m.id,sourceConversationId:s.id}));
-      if (m.status !== 'running') button(actions, '重新生成', () => send(m.replyTo,m.id));
-
-    }
-  }
+    const meta=el('div',null,card,'ysa-message-meta');let signature='',currentMessage=m;
+    const actions=next=>{
+      const key=next.status+'|'+Boolean(next.content)+'|'+Boolean(next.provenance);
+      if(key===signature)return;signature=key;meta.replaceChildren();
+      if(next.role!=='assistant')return;
+      if(next.provenance){const details=el('details',null,meta);el('summary','本轮技能与引用',details);el('pre',JSON.stringify(next.provenance,null,2),details);}
+      const row=el('div',null,meta,'ysa-actions');
+      button(row,'复制',async()=>{await navigator.clipboard.writeText(currentMessage.content);note('已复制');});
+      if(next.content&&next.status!=='running'){
+        button(row,'保存到章节',()=>showChapterSave({text:currentMessage.content,title:s.title,conversationId:s.id,messageId:next.id,provenance:next.provenance}));
+        button(row,'下载内容',()=>downloadOutput(currentMessage.content,s.title));
+        if(['succeeded','done'].includes(next.status))button(row,'确认采用',()=>editMaterials({content:currentMessage.content,sourceMessageId:next.id,sourceConversationId:s.id}));
+      }
+      if(next.status!=='running')button(row,'重新生成',()=>send(next.replyTo,next.id));
+    };
+    let firstLayout=true;
+    const native=mountNativeMessage(nativeHost,m,()=>send(m.replyTo,m.id),()=>{if(firstLayout&&latestAnchor===m.id)positionLatest();firstLayout=false;});
+    actions(m);
+    return{card,update(next){currentMessage=next;native.update(next);actions(next);},unmount:()=>native.unmount()};
+  });
+  if(!s?.messages.length&&!list.children.length){el('h3','和技能一起创作',list);el('p','选择技能，引用章节、人物设定或之前的聊天，讨论满意后再写入章节。',list,'ysa-muted');}
   renderSkills(); renderModels(); renderChips();
   panel.querySelector('[data-send]').disabled = busy; panel.querySelector('[data-stop]').disabled = !busy;
   panel.querySelector('[data-send]').hidden = busy;panel.querySelector('[data-stop]').hidden = !busy;
   input.disabled = busy; sessionPicker.disabled = busy; modelPicker.disabled = busy;
-  const draftToggle=panel.querySelector('[data-working-draft]');if(draftToggle){draftToggle.disabled=busy;draftToggle.checked=current()?.includeWorkingDraft!==false;}
+  const draftToggle=panel.querySelector('[data-working-draft]');if(draftToggle){draftToggle.disabled=busy;draftToggle.setAttribute('aria-pressed',String(current()?.includeWorkingDraft!==false));}
   composerBehavior?.refresh();
-  if(latestAnchor)positionLatest();else list.scrollTop=preservedScroll;
+  if(!latestAnchor)list.scrollTop=preservedScroll;
 }
 async function createSession() {
   if (busy) throw Error('请先停止当前生成');
   const r = route(), s = newSession(scope, r.projectId, r.chapterId); sessions.push(s); currentId = s.id; await persist(); render(); note('新会话已保存');
 }
-function dialog(title) {
+function dialog(title,trigger) {
   if (modal) throw Error('请先关闭当前窗口');
   const d = el('dialog', null, workspaceRoot(), 'ysa-dialog'); modal = d;
   const head = el('header', null, d); el('strong', title, head); button(head, '关闭', () => close());
   const body = el('section', null, d, 'ysa-dialog-body'), footer = el('footer', null, d);
-  const close = () => { if (writeBusy) return; d.close(); d.remove(); modal = null; };
+  const close = () => { if (writeBusy) return; d.close(); d.remove(); modal = null; trigger?.setAttribute('aria-expanded','false'); };
+  trigger?.setAttribute('aria-expanded','true');
   d.addEventListener('cancel', e => { e.preventDefault(); close(); }); d.showModal();
   return {body, footer, close};
 }
@@ -163,17 +174,13 @@ async function reference(label, text, extra = {}) {
   const s = current(); s.references.push({id: uid(), label, text, capturedAt: now(), ...extra}); await persist(); renderChips(); note('已加入引用：' + label);
 }
 async function openReferences() {
-  if (busy) throw Error('请先停止生成');
-  const d = dialog('添加参考内容');d.body.closest('dialog').classList.add('ysa-reference-dialog');el('p','选择需要带入本轮对话的内容，引用后可随时查看或移除。',d.body);const grid=el('div',null,d.body,'ysa-reference-grid');
-  button(grid, '当前选中文字', async () => { if (!selection?.text || selection.route !== location.pathname) throw Error('请先在当前章节中选中文字'); await reference('章节选中文字', selection.text, {projectId: route().projectId, chapterId: route().chapterId}); d.close(); });
-  button(grid, '当前章节', async () => { const snap = snapshot(); await reference('当前章节 · ' + snap.title, snap.field === 'sourceText' ? plain(snap.content) : snap.content, {projectId:snap.projectId, chapterId:snap.chapterId}); d.close(); });
-  button(grid, '指定前后章节', async () => { const data = await projectData(); const units = data.units || []; const box = el('div', null, grid,'ysa-reference-chapters'); el('h4', '选择需要引用的章节', box); for (const u of units.filter(u => u.kind === 'chapter')) button(box, u.title, async () => { const r = await api.get('/projects/'+enc(route().projectId)+'/units/'+enc(u.id)); const unit = r.unit || r; await reference('章节 · ' + unit.title, plain(unit.sourceText) + (unit.screenplayText ? '\n【画面剧本】\n' + unit.screenplayText : ''), {projectId: route().projectId, chapterId:u.id}); d.close(); }); });
-  button(grid, '人物、场景、道具设定', async () => { const data = await projectData(); const assets = data.assets || []; await reference('人物、场景、道具设定', JSON.stringify(assets.map(a => ({name:a.name || a.title,category:a.category,description:a.description,character:a.character,extraInfo:a.extraInfo})), null, 2)); d.close(); });
-  button(grid, '项目大纲与设定', async () => { const data = await projectData(); const p = data.project || data; await reference('项目大纲与设定', JSON.stringify(Object.fromEntries(Object.entries(p).filter(([k]) => /name|description|outline|synopsis|setting|style|summary/i.test(k))), null, 2)); d.close(); });
-  button(grid, '历史聊天记录', () => { d.close(); return openHistory(); });
-  for(const card of grid.querySelectorAll(':scope > button')){const title=card.textContent;card.classList.add('ysa-reference-card');card.replaceChildren();el('span',({'当前选中文字':'⌁','当前章节':'▤','指定前后章节':'▥','人物、场景、道具设定':'♧','项目大纲与设定':'◇','历史聊天记录':'↶'})[title]||'▤',card,'ysa-reference-icon');const copy=el('span',null,card);el('strong',title,copy);el('small',({'当前选中文字':'使用编辑器中选中的片段','当前章节':'引用正在编辑的章节全文','指定前后章节':'选择章节，补充连续剧情','人物、场景、道具设定':'统一角色与场景信息','项目大纲与设定':'参考故事结构与创作方向','历史聊天记录':'从之前的讨论中选择消息'})[title],copy);}
-  const label = el('label', null, d.body,'ysa-reference-upload');el('strong','＋ 添加本地资料',label);el('small','选择 TXT、Markdown、JSON 或 CSV 文件 · 最大 1 MB',label); const file = el('input', null, label); file.type = 'file'; file.accept = '.txt,.md,.json,.csv';
-  file.onchange = async () => { try { const f = file.files[0]; if (!f) return; if (f.size > 1024 * 1024) throw Error('参考资料最大 1 MB'); await reference('资料 · ' + f.name, await f.text()); d.close(); } catch (e) { showError(e); } };
+  assertMaterialAccess();const session=current(),openedScope=scope,projectId=route().projectId;
+  return referencePicker({references:session.references||[],dialog:title=>dialog(title,panel.querySelector('[data-reference]')),el,button,projectData:()=>projectData(projectId),readChapter:id=>api.get('/projects/'+enc(projectId)+'/units/'+enc(id)),snapshot,getSelection:()=>selection,route:()=>({...route(),pathname:location.pathname}),plain,openHistory,onApply:async refs=>{
+    assertMaterialAccess();if(scope!==openedScope||current()!==session||route().projectId!==projectId)throw Error('项目或会话已切换，请重新选择参考内容');
+    const previous=session.references;session.references=refs.map(r=>({...r,id:r.id||uid(),capturedAt:r.capturedAt||now()}));
+    try{await persist();}catch(error){session.references=previous;throw error;}
+    renderChips();note('参考内容已更新');
+  }});
 }
 async function openHistory() {
   if (busy) throw Error('请先停止生成');
@@ -338,10 +345,10 @@ async function openAgent() {
   input.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send().catch(showError); } };
   const tools = el('div',null,compose,'ysa-tools');
   modelPicker = el('select',null,tools); modelPicker.setAttribute('aria-label','Agent 文字模型'); modelPicker.onchange = async () => { current().model = modelPicker.value; await persist(); };
-  const pickerHost=el('div',null,tools,'ysa-picker-host');composeButton(button(tools,'',openReferences,'ysa-reference-trigger'),'reference','参考内容');
-  button(tools,'资料库',()=>editMaterials());
-  button(tools,'本轮上下文',()=>{assertMaterialAccess();const openedScope=scope,projectId=materialProject();return openContextPreview({store:knowledgeStore(),projectId,session:current(),prompt:input.value,dialog,el,assertActive:()=>{if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新查看上下文');}});});
-  const draftLabel=el('label','带入最近回复',tools);const draftCheck=el('input',null,draftLabel);draftCheck.type='checkbox';draftCheck.checked=current()?.includeWorkingDraft!==false;draftCheck.dataset.workingDraft='';draftCheck.onchange=async()=>{assertMaterialAccess();current().includeWorkingDraft=draftCheck.checked;await persist();};
+  const pickerHost=el('div',null,tools,'ysa-picker-host');const referencesButton=composeButton(button(tools,'',openReferences,'ysa-reference-trigger'),'reference','引用');referencesButton.dataset.reference='';referencesButton.setAttribute('aria-expanded','false');
+  const libraryButton=composeButton(button(tools,'',()=>editMaterials()),'file','资料库');libraryButton.dataset.library='';libraryButton.setAttribute('aria-expanded','false');
+  const contextButton=composeButton(button(tools,'',()=>{assertMaterialAccess();const openedScope=scope,projectId=materialProject();return openContextPreview({store:knowledgeStore(),projectId,session:current(),prompt:input.value,dialog:title=>dialog(title,contextButton),el,assertActive:()=>{if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新查看上下文');}});}), 'context','上下文');contextButton.dataset.context='';contextButton.setAttribute('aria-expanded','false');contextButton.setAttribute('aria-label','本轮上下文');
+  const draftButton=composeButton(button(tools,'',async()=>{assertMaterialAccess();const s=current(),previous=s.includeWorkingDraft;s.includeWorkingDraft=s.includeWorkingDraft===false;try{await persist();}catch(error){s.includeWorkingDraft=previous;throw error;}draftButton.setAttribute('aria-pressed',String(s.includeWorkingDraft));}),'history','最近回复');draftButton.dataset.workingDraft='';draftButton.setAttribute('aria-label','带入最近回复');draftButton.setAttribute('aria-pressed',String(current()?.includeWorkingDraft!==false));draftButton.dataset.ysaTip='把最近一次回复作为未确认工作稿带入，可点击关闭';
   const details = el('details',null,compose); el('summary','选择技能',details); skillPicker = el('div',null,details,'ysa-skills');
   const actions = el('div',null,tools,'ysa-send-actions'); composeButton(button(actions,'',() => send(), 'ysa-primary'),'send','发送').dataset.send = ''; composeButton(button(actions,'',stop),'stop','停止').dataset.stop = '';
   status = el('div','',compose,'ysa-status'); status.setAttribute('role','status');status.hidden=true;

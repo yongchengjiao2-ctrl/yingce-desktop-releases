@@ -8,6 +8,8 @@ import {materialStore,projectContext} from '../src/confirmed-materials.js';
 import {openMaterials,openContextPreview} from '../src/confirmed-materials-ui.js';
 import {floatingAgent,iconButton} from '../src/floating-agent.js';
 import {composeButton,composerIcon} from '../src/composer-icons.js';
+import {reconcileMessages} from '../src/agent-message-list.js';
+import {referencePicker} from '../src/reference-picker.js';
 
 const tick=()=>new Promise(resolve=>setTimeout(resolve,15));
 test('conversation integration: native history, skill provenance, two turns, restart, chapter write and undo',async()=>{
@@ -22,6 +24,7 @@ test('conversation integration: native history, skill provenance, two turns, res
   const noop=()=>{};
   const services={deleteCreationConversation,filterDeletedConversations,api,initRequest:noop,initSkills:noop,addedSkills:async()=>({skills:[{skillId:'writer',skillName:'编剧技能',version:'1',isAdded:true}]}),installSkill:noop,addSkill:noop,skillRuntime:{prepare:async args=>({prompt:args.prompt,metadata:{skillIds:args.selectedSkillIds,skillVersions:[{skillId:'writer',version:'1'}]}})},initSkillRuntime:noop,configStore:{getState:()=>({config:{textModels:['test-model'],textModel:'test-model'}}),subscribe:noop},initConfig:noop,generate:async args=>{tasks.push(args);args.onTextDelta('这是验收剧本');return{text:'这是验收剧本'};},initGeneration:noop,storageFor:()=>({getItem:async k=>data.get(k),setItem:async(k,v)=>data.set(k,v)}),initStorage:noop,userScope:()=> 'test-user',initScope:noop,canvasStore:{getState:()=>({projects:[]})},initCanvas:noop,...core};
   let controls;
+  Object.assign(services,{reconcileMessages,referencePicker});
   Object.assign(services,{materialStore,projectContext,openMaterials,openContextPreview});
   services.mountAgentControls=(host,read)=>{controls=read;return{update:()=>{}};};
   services.outputRichText=text=>'<p>'+text+'</p>';
@@ -71,10 +74,13 @@ test('conversation integration: native history, skill provenance, two turns, res
   assert.equal(document.querySelector('.ysa-messages').scrollTop,140);
   assert.equal(tasks[0].metadata.skillIds[0],'writer');assert.match(tasks[0].prompt,/林岚是一位维修员/);
   assert.equal(tasks[0].config.model,'channel::gemini-4-argon');
+  const previousReply=document.querySelectorAll('.ysa-messages>article')[1];
   controls().onModelChange('channel::gemini-3.8-flash');
   document.querySelector('[aria-label="Agent 对话输入"]').value='加一句台词';await app.send();
   assert.equal(tasks[1].textHistory.length,0);assert.match(tasks[1].prompt,/当前未确认工作稿/);assert.match(tasks[1].prompt,/这是验收剧本/);assert.equal(app.current().messages.length,4);
   assert.equal(tasks[1].config.model,'channel::gemini-3.8-flash');
+  assert.equal(document.querySelectorAll('.ysa-messages>article')[1],previousReply);
+  const draftButton=document.querySelector('[data-working-draft]');assert.equal(draftButton.tagName,'BUTTON');assert.equal(draftButton.getAttribute('aria-pressed'),'true');draftButton.click();await tick();assert.equal(draftButton.getAttribute('aria-pressed'),'false');
   await app.load();assert.equal(app.current().messages.length,4);
   await app.openWrite(app.current().messages[3],app.current());await click('生成预览');
   dirty=true;await click('确认写入');assert.equal(requests.length,0);assert.match(document.querySelector('[role="alert"]').textContent,/已变化/);
