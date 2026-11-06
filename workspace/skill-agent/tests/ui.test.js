@@ -37,6 +37,9 @@ test('conversation integration: native history, skill provenance, two turns, res
   const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
   const app=await new AsyncFunction(...Object.keys(services),source+'\nreturn {openAgent,openHistory,send,current,snapshot,openWrite,openWrites,load};')(...Object.values(services));
   await app.openAgent();
+  const agentPanel=document.querySelector('.ysa-panel');
+  agentPanel.getBoundingClientRect=()=>{const left=parseFloat(agentPanel.style.left)||0,top=parseFloat(agentPanel.style.top)||0,width=parseFloat(agentPanel.style.width)||0,height=parseFloat(agentPanel.style.height)||0;return{left,top,width,height,right:left+width,bottom:top+height};};
+  agentPanel.style.height='1px';await app.openAgent();assert.equal(agentPanel.hidden,false);assert.ok(parseFloat(agentPanel.style.height)>=280);
   const click=async text=>{const b=[...document.querySelectorAll('button')].find(b=>(b.textContent===text||b.getAttribute('aria-label')===text+' Agent 助手'||b.getAttribute('aria-label')===text)&&!b.disabled);assert.ok(b,'missing button '+text);b.click();await tick();};
   assert.ok(document.querySelector('.ysa-panel.ysa-expanded'));
   assert.equal(document.querySelectorAll('.ysa-header-actions button').length,8);
