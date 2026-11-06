@@ -4,7 +4,7 @@ export function adaptiveComposer({panel,compose,input,list,isBusy}){
   compose.classList.add('ysa-adaptive-composer');panel.classList.add('ysa-has-adaptive-composer');
   const popupOpen=()=>!!document.querySelector('.creation-skill-popup,.ysa-select-popup,.ant-popover:not(.ant-popover-hidden),dialog[open]');
   const reserveSpace=()=>{const top=list.scrollTop;list.style.setProperty('--ysa-composer-clearance',Math.max(76,compose.getBoundingClientRect().height+32)+'px');list.scrollTop=top;};
-  const refresh=()=>{if(disposed)return;const focused=compose.contains(document.activeElement),expanded=hovered||focused||!!input.value.trim()||isBusy()||popupOpen();compose.classList.toggle('ysa-composer-expanded',expanded);compose.dataset.expanded=String(expanded);input.setAttribute('aria-expanded',String(expanded));input.placeholder=expanded?'描述故事、修改要求，或者接着之前的讨论…':'继续讨论你的故事…';reserveSpace();};
+  const refresh=()=>{if(disposed)return;const busy=isBusy(),focused=!busy&&compose.contains(document.activeElement),expanded=hovered||focused||!!input.value.trim()||popupOpen();compose.classList.toggle('ysa-composer-expanded',expanded);compose.dataset.busy=String(busy);compose.dataset.expanded=String(expanded);input.setAttribute('aria-expanded',String(expanded));input.placeholder=expanded?'描述故事、修改要求，或者接着之前的讨论…':busy?'正在回复，可随时停止…':'继续讨论你的故事…';reserveSpace();};
   const later=()=>{clearTimeout(timer);timer=setTimeout(refresh,180);};
   const enter=()=>{hovered=true;clearTimeout(timer);refresh();};const leave=()=>{hovered=false;later();};
   compose.addEventListener('pointerenter',enter);compose.addEventListener('pointerleave',leave);compose.addEventListener('focusin',refresh);compose.addEventListener('focusout',later);input.addEventListener('input',refresh);

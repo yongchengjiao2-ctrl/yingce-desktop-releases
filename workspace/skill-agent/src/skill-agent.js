@@ -118,13 +118,13 @@ function render() {
   for (const m of s?.messages || []) {
     const card = el('article', null, list, 'ysa-message ysa-' + m.role);card.dataset.messageId=m.id;if(heights.get(m.id))card.style.minHeight=heights.get(m.id)+'px';
     const nativeHost=el('div',null,card,'ysa-native-message');
-    let firstLayout=true;messageViews.set(m.id,mountNativeMessage(nativeHost,m,()=>send(m.replyTo),()=>{if(latestAnchor)positionLatest();else if(firstLayout)list.scrollTop=preservedScroll;firstLayout=false;card.style.minHeight='';}));
+    let firstLayout=true;messageViews.set(m.id,mountNativeMessage(nativeHost,m,()=>send(m.replyTo,m.id),()=>{if(latestAnchor)positionLatest();else if(firstLayout)list.scrollTop=preservedScroll;firstLayout=false;card.style.minHeight='';}));
     if (m.role === 'assistant') {
       if (m.provenance) { const details = el('details', null, card); el('summary', '本轮技能与引用', details); el('pre', JSON.stringify(m.provenance, null, 2), details); }
       const actions = el('div', null, card, 'ysa-actions');
       button(actions, '复制', async () => { await navigator.clipboard.writeText(m.content); note('已复制'); });
       if (m.content) {button(actions, '保存到章节', () => showChapterSave({text:m.content,title:s.title,conversationId:s.id,messageId:m.id,provenance:m.provenance}));button(actions,'下载内容',()=>downloadOutput(m.content,s.title));}
-      if (m.status !== 'running') button(actions, '重新生成', () => send(m.replyTo));
+      if (m.status !== 'running') button(actions, '重新生成', () => send(m.replyTo,m.id));
 
     }
   }
@@ -205,7 +205,7 @@ async function openHistory() {
     if (!rows.children.length) el('p', '没有匹配的聊天记录', rows);
   }; search.oninput = fill; fill();
 }
-async function send(replyTo) {
+async function send(replyTo,retryMessageId) {
   if (busy) return;
   const s = current(), original = replyTo && s.messages.find(m => m.id === replyTo);
   const prompt = original ? original.content : input.value.trim(); if (!prompt) return;
@@ -223,10 +223,11 @@ async function send(replyTo) {
   const user = {id:uid(),role:'user',content:prompt,status:'succeeded',createdAt:now()};
   if (!original) s.messages.push(user);
   const answer = {id:uid(),role:'assistant',content:'',replyTo:original?.id || user.id,status:'running',createdAt:now(),model:selectedModel,provenance:{...prepared.metadata,references:(s.references || []).map(r => ({id:r.id,label:r.label,capturedAt:r.capturedAt}))}};
+  if(retryMessageId)s.messages=s.messages.filter(m=>m.id!==retryMessageId||m.role!=='assistant');
   s.messages.push(answer); s.model = selectedModel; if (s.title === '新对话') s.title = prompt.slice(0, 28); s.updatedAt = now();
   busy = true; controller = new AbortController(); lastTask = null; let checkpoint;
   try {
-    await persist(); input.value = ''; render(); note('已保存对话，正在调用模型…');
+    await persist(); input.value = ''; input.blur(); render(); note('已保存对话，正在调用模型…');
     const result = await generate({projectId:s.projectId || undefined,mode:'text',prompt:prepared.prompt,config,textHistory:context.history,signal:controller.signal,streamText:true,enableThinking:false,clientOperationId:answer.id,metadata:{source:'skill-agent',conversationId:s.id,messageId:answer.id,...prepared.metadata},onTaskUpdate: task => { lastTask = task; answer.taskId = task.id; },onTextDelta: text => { answer.content = text; messageViews.get(answer.id)?.update(answer); if (!checkpoint) checkpoint = setTimeout(()=>{checkpoint=null;persist().catch(showError);},1000); }});
     if (!result.text?.trim()) throw Error('模型没有返回正文'); answer.content = result.text; answer.status = 'succeeded'; note('生成完成，已保存到当前会话');
   } catch (e) { answer.status = controller.signal.aborted ? 'stopped' : 'failed'; answer.error = e.message; note(answer.status === 'stopped' ? '已停止，已收到的内容保留' : e.message); }
