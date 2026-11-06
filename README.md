@@ -1,15 +1,18 @@
 # 影策个人桌面版
 
-当前完整版本 **v1.3.19**。
+当前完整版本 **v1.3.20**。
 
 下载大文件时出现 EOF、连接中断：安装器现已支持五次重试、断点续传和 SHA-256 校验。已有安装的旧更新器不会自行获取这次脚本修复，请先[下载修复后的 install.ps1](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/latest/download/install.ps1)，替换安装目录中同名文件（与 `current.txt`、`update.cmd` 同目录），再运行 `update.cmd`。不要删除 `cache` 中的 `.partial` 文件，重试时将继续下载。首次安装仍下载 `install.cmd` 与 `install.ps1` 到同一目录。持续无法连接 GitHub 时，可从 Release 下载完整 ZIP 离线安装；所有下载均须通过校验后才安装，个人数据保留。
 
-[下载 v1.3.19 桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.19)
+[下载 v1.3.20 桌面版](https://github.com/yongchengjiao2-ctrl/yingce-desktop-releases/releases/tag/desktop-v1.3.20)
 
 首次安装：下载同一 Release 中的 **install.cmd** 与 **install.ps1**，放在同一个文件夹后双击 install.cmd。已安装版本可使用「影策 → 安装或更新影策」。完整 ZIP 解压后运行「安装或更新.cmd」。适用于 Windows 10/11 x64。
 
 本版新增章节 Skill/Agent 对话与富文本保存、可移动助手和按项目 ZIP 迁移。项目卡片右上角可一键打包，旁边的「一键上传项目」卡片可在新电脑恢复章节、聊天、画布及关联素材。新电脑需要自行配置模型接口和 API Key。
 
-[更新说明与验证范围](release-notes-v1.3.19.md) · [三轮验收记录](acceptance-v1.3.19.json) · [可审阅功能源码](workspace/skill-agent/README.md)
+[更新说明与验证范围](release-notes-v1.3.20.md) · [三轮验收记录](acceptance-v1.3.20.json) · [可审阅功能源码](workspace/skill-agent/README.md)
 
 发行包不包含原电脑的个人项目、小说正文、浏览器配置或密钥。升级保留本机数据和渠道设置；第三方组件保留各自许可证。上游项目：[open-ai-canvas](https://github.com/ddcat-ai/open-ai-canvas)。
+
+
+1.3.20 提供从 1.3.19 升级的约 67 MB 差量包，软件菜单自动检查基线并选择；不匹配时使用完整包。包含已确认资料库、助手窗口恢复、引用多选与选中反馈、消息增量更新和画布任务修复。个人数据保留。更新前保存未发送草稿。
