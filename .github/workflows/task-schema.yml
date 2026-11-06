@@ -1,0 +1,22 @@
+name: Desktop task schema regression
+on:
+  push:
+    branches: [main]
+    paths: ['workspace/skill-agent/task-schema.mjs', 'workspace/skill-agent/task_schema_patch.py', 'workspace/skill-agent/tests/task-schema.test.mjs', 'workspace/skill-agent/tests/test_task_schema_patch.py', 'workspace/skill-agent/build-release.py', '.github/workflows/task-schema.yml']
+  pull_request:
+    paths: ['workspace/skill-agent/task-schema.mjs', 'workspace/skill-agent/task_schema_patch.py', 'workspace/skill-agent/tests/task-schema.test.mjs', 'workspace/skill-agent/tests/test_task_schema_patch.py', 'workspace/skill-agent/build-release.py', '.github/workflows/task-schema.yml']
+permissions:
+  contents: read
+jobs:
+  schema:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: node --test workspace/skill-agent/tests/task-schema.test.mjs
+      - run: python -m unittest discover -s workspace/skill-agent/tests -p test_task_schema_patch.py -v

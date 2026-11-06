@@ -8,6 +8,7 @@ import shutil
 import struct
 import subprocess
 import sys
+from task_schema_patch import repair_apply_state
 import zipfile
 
 HERE=Path(__file__).resolve().parent
@@ -62,6 +63,9 @@ def stage():
         if src.is_file():atomic_write(STAGE/'web/dist/assets'/src.name,src.read_bytes())
     for name in ('project-bundles.cjs','project_bundle.py'):atomic_write(STAGE/'app/resources'/name,(HERE/name).read_bytes())
     atomic_write(STAGE/'backend/desktop-state/portable-install.py',(HERE/'portable-install.py').read_bytes())
+    atomic_write(STAGE/'backend/desktop-state/task-schema.mjs',(HERE/'task-schema.mjs').read_bytes())
+    state_script=STAGE/'backend/desktop-state/apply-state.mjs'
+    atomic_write(state_script,repair_apply_state(state_script.read_text(encoding='utf8')).encode('utf8'))
     atomic_write(STAGE/'app/resources/app.asar',modify_asar((base/'app/resources/app.asar').read_bytes()))
     atomic_write(STAGE/'release.json',json.dumps({'version':VERSION,'portable':True,'capturedFrom':'1.3.18'},indent=2).encode())
     atomic_write(STAGE/'install.ps1',(REPO/'install.ps1').read_bytes())
