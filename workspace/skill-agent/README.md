@@ -32,4 +32,6 @@
 
 ## 已知边界
 
+源码已修复空正文终态与章节清空崩溃：停止的空回复显示“已停止，尚未收到正文”，清空章节后自动创建并选中“1”。现有 1.3.19 完整 ZIP 尚未包含此修复，维护者可运行 `python chapter_state_patch.py --install-root <安装目录>` 更新已安装版本；脚本先备份文件，并校验目标构建的替换位置。专项测试为 `node --test tests/message-state.test.js` 和 `python -m unittest discover -s tests -p test_chapter_state.py`。
+
 模型调用依赖用户自己的有效渠道、协议和密钥；验收不调用收费模型。Skill 加载指令和可解析引用文件，不执行包内任意本地脚本。超长上下文会要求减少引用或新建会话，不自动丢弃原始历史。章节正文写入采用写前回读和写后校验，后端暂不提供 sourceText 原子版本比较。自动验收在独立 Windows 目录模拟新电脑环境，不代表已覆盖所有硬件及第三方服务组合。

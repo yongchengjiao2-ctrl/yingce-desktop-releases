@@ -2,6 +2,7 @@
 from pathlib import Path
 from datetime import datetime
 import shutil, json, hashlib
+from chapter_state_patch import repair_chapter_code
 
 ROOT = Path(__file__).resolve().parent
 # workspace/skill-agent -> workspace -> yingce-desktop-releases -> install root
@@ -24,7 +25,7 @@ for file in files:
         shutil.copy2(file, target)
         manifest.append({'file':str(file),'backup':str(target),'sha256':hashlib.sha256(file.read_bytes()).hexdigest()})
 
-s = CHAPTER.read_text(encoding='utf-8')
+s = repair_chapter_code(CHAPTER.read_text(encoding='utf-8'))
 if 'connectChapterAgent as YSAConnect' not in s:
     marker = 'window.addEventListener(`yingce-video-chapter-saved`,saved);return()=>window.removeEventListener(`yingce-video-chapter-saved`,saved)},[J,V?.id,e.project.id,O,u])'
     assert s.count(marker) == 1, 'Chapter bridge anchor changed; no files installed'
