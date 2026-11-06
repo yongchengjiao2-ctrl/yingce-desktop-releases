@@ -6,6 +6,8 @@ import json
 import os
 import shutil
 import struct
+import subprocess
+import sys
 import zipfile
 
 HERE=Path(__file__).resolve().parent
@@ -109,5 +111,7 @@ def archive():
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--stage',action='store_true');p.add_argument('--archive',action='store_true');a=p.parse_args()
+    if a.stage or a.archive:
+        subprocess.run([sys.executable,'-m','unittest','discover','-s',str(HERE/'tests'),'-p','test_project_bundle.py'],check=True)
     if a.stage:stage()
     if a.archive:archive()

@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -31,6 +32,67 @@ class BundleTest(unittest.TestCase):
   resource=self.local/'data/resources/users/a/test.txt';resource.parent.mkdir(parents=True);resource.write_text('实际素材',encoding='utf8')
   self.front={'yingce-skill-agent-v1':[{'id':'session-123456789','projectId':'project-123456789','messages':[{'id':'message-123456789','content':'聊天历史 **加粗**'}]}]}
  def tearDown(self):self.tmp.cleanup()
+ def rewrite_payload(self,archive,mutate):
+  with zipfile.ZipFile(archive) as z:
+   members={n:z.read(n) for n in z.namelist()}
+  payload=json.loads(members['project-data.json']);mutate(payload)
+  members['project-data.json']=bundle.json_bytes(payload);manifest=json.loads(members['manifest.json']);manifest['dataSha256']=hashlib.sha256(members['project-data.json']).hexdigest();members['manifest.json']=bundle.json_bytes(manifest)
+  with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
+   for name,data in members.items():z.writestr(name,data)
+ def test_inert_task_flag_is_compatible_but_unknown_fields_are_rejected(self):
+  for folder in [self.local,self.target]:
+   c=sqlite3.connect(folder/'data/open_ai_canvas.db');c.execute('CREATE TABLE tasks(id TEXT PRIMARY KEY,user_id TEXT,project_id TEXT,status TEXT)');c.commit();c.close()
+  c=sqlite3.connect(self.local/'data/open_ai_canvas.db');c.execute('ALTER TABLE tasks ADD COLUMN agent_execution_ready INTEGER');c.execute("INSERT INTO tasks VALUES('task-123456789','user-source-12345','project-123456789','completed',0)");c.commit();c.close()
+  archive=self.root/'tasks.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive,'project-123456789')
+  with zipfile.ZipFile(archive) as z:self.assertNotIn('agent_execution_ready',json.loads(z.read('project-data.json'))['tables']['tasks'][0])
+  self.rewrite_payload(archive,lambda p:p['tables']['tasks'][0].update(agent_execution_ready=0))
+  bundle.import_bundle(self.target,'target-user',archive)
+  c=sqlite3.connect(self.target/'data/open_ai_canvas.db');self.assertEqual(c.execute('SELECT count(*) FROM tasks').fetchone()[0],1);c.close()
+  c=sqlite3.connect(self.local/'data/open_ai_canvas.db');c.execute('ALTER TABLE tasks ADD COLUMN future_task_state TEXT');c.execute("UPDATE tasks SET future_task_state='unsupported'");c.commit();c.close()
+  bundle.export_bundle(self.local,'user-source-12345',self.front,archive,'project-123456789')
+  with self.assertRaisesRegex(ValueError,'tasks'):bundle.import_bundle(self.target,'target-user',archive)
+ def test_manifest_counts_are_checked_before_database_changes(self):
+  archive=self.root/'counts.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive)
+  self.rewrite_payload(archive,lambda p:p['tables']['project_units'].append(dict(p['tables']['project_units'][0],id='another-chapter-12345')))
+  with self.assertRaisesRegex(ValueError,'数量'):bundle.import_bundle(self.target,'target-user',archive)
+  c=sqlite3.connect(self.target/'data/open_ai_canvas.db');self.assertEqual(c.execute('SELECT count(*) FROM projects').fetchone()[0],0);c.close()
+ def test_dangling_project_assets_cannot_replace_previous_export(self):
+  archive=self.root/'retained.zip';archive.write_bytes(b'previous-good-export')
+  c=sqlite3.connect(self.local/'data/open_ai_canvas.db');c.execute('CREATE TABLE project_asset_links(id TEXT PRIMARY KEY,project_id TEXT,asset_id TEXT)');c.execute("INSERT INTO project_asset_links VALUES('link-123456789','project-123456789','missing-asset-123456789')");c.commit();c.close()
+  with self.assertRaisesRegex(ValueError,'缺少关联'):bundle.export_bundle(self.local,'user-source-12345',self.front,archive,'project-123456789')
+  self.assertEqual(archive.read_bytes(),b'previous-good-export')
+ def test_failed_import_restores_triggers_and_rolls_back_records_and_materials(self):
+  archive=self.root/'rollback.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive)
+  c=sqlite3.connect(self.target/'data/open_ai_canvas.db');c.execute('CREATE TRIGGER yingce_provenance_after_insert AFTER INSERT ON projects BEGIN SELECT 1; END');trigger=c.execute("SELECT sql FROM sqlite_master WHERE name='yingce_provenance_after_insert'").fetchone()[0];c.close()
+  original=bundle.connect
+  class Fault(sqlite3.Connection):
+   def execute(self,sql,params=()):
+    if sql.startswith('INSERT INTO "project_units"'):raise sqlite3.IntegrityError('test write failure')
+    return super().execute(sql,params)
+  def failing(db):
+   c=sqlite3.connect(db,factory=Fault);c.row_factory=sqlite3.Row;return c
+  bundle.connect=failing
+  try:
+   with self.assertRaisesRegex(sqlite3.IntegrityError,'test write'):bundle.import_bundle(self.target,'target-user',archive)
+  finally:bundle.connect=original
+  c=sqlite3.connect(self.target/'data/open_ai_canvas.db');self.assertEqual(c.execute('SELECT count(*) FROM projects').fetchone()[0],0);self.assertEqual(c.execute("SELECT sql FROM sqlite_master WHERE name='yingce_provenance_after_insert'").fetchone()[0],trigger);c.close()
+  self.assertEqual([p for p in (self.target/'data/resources').rglob('*') if p.is_file()],[])
+ def test_provenance_triggers_do_not_duplicate_restored_asset_versions(self):
+  for folder in [self.local,self.target]:
+   c=sqlite3.connect(folder/'data/open_ai_canvas.db');c.executescript('''CREATE TABLE assets(id TEXT PRIMARY KEY,user_id TEXT);
+   CREATE TABLE asset_versions(id TEXT PRIMARY KEY,asset_id TEXT,version INTEGER,UNIQUE(asset_id,version));
+   CREATE TABLE asset_representations(id TEXT PRIMARY KEY,asset_version_id TEXT,task_id TEXT,role TEXT,UNIQUE(task_id,role));
+   CREATE TABLE project_asset_candidates(id TEXT PRIMARY KEY,project_id TEXT,asset_id TEXT);
+   CREATE TRIGGER yingce_provenance_after_insert AFTER INSERT ON project_asset_candidates BEGIN
+   INSERT INTO asset_versions VALUES('auto-'||NEW.id,NEW.asset_id,1); END;''');c.commit();c.close()
+  c=sqlite3.connect(self.local/'data/open_ai_canvas.db');c.execute("INSERT INTO assets VALUES('asset-123456789','user-source-12345')");c.execute("INSERT INTO project_asset_candidates VALUES('candidate-123456789','project-123456789','asset-123456789')");c.commit();c.close()
+  archive=self.root/'triggers.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive,'project-123456789')
+  c=sqlite3.connect(self.local/'data/open_ai_canvas.db');version=c.execute('SELECT id FROM asset_versions').fetchone()[0];c.execute('INSERT INTO asset_representations VALUES(?,?,?,?)',('rep-123456789',version,'archived-task-123456789','image'));c.commit();c.close()
+  bundle.export_bundle(self.local,'user-source-12345',self.front,archive,'project-123456789')
+  bundle.import_bundle(self.target,'target-user',archive)
+  bundle.import_bundle(self.target,'target-user',archive)
+  c=sqlite3.connect(self.target/'data/open_ai_canvas.db');self.assertEqual(c.execute('SELECT count(*) FROM asset_versions').fetchone()[0],2);self.assertEqual(c.execute('SELECT count(*) FROM asset_representations').fetchone()[0],2)
+  self.assertEqual(c.execute("SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='yingce_provenance_after_insert'").fetchone()[0],1);c.close()
  def test_confirmed_materials_round_trip(self):
   self.front['yingce-confirmed-materials-v1']=[{'id':'material-123456789','projectId':'project-123456789','type':'character','title':'女主','content':'已确认人物设定','revision':2,'enabled':True,'revisions':[{'revision':1,'content':'上一版设定'}]}]
   archive=self.root/'materials.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive,project_id='project-123456789')
@@ -38,6 +100,19 @@ class BundleTest(unittest.TestCase):
   item=result['frontend']['yingce-confirmed-materials-v1'][0]
   self.assertEqual(item['content'],'已确认人物设定');self.assertEqual(item['revisions'][0]['content'],'上一版设定')
   self.assertNotEqual(item['projectId'],'project-123456789');self.assertEqual(item['revision'],2)
+ def test_resource_upload_keys_are_isolated_for_repeated_imports(self):
+  for folder in [self.local,self.target]:
+   c=sqlite3.connect(folder/'data/open_ai_canvas.db');c.execute('ALTER TABLE resources ADD COLUMN upload_key TEXT');c.execute('CREATE UNIQUE INDEX unique_upload ON resources(user_id,upload_key)');c.commit();c.close()
+  c=sqlite3.connect(self.local/'data/open_ai_canvas.db');c.execute("UPDATE resources SET upload_key='source-upload'");c.commit();c.close()
+  archive=self.root/'uploads.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive)
+  bundle.import_bundle(self.target,'target-user',archive);bundle.import_bundle(self.target,'target-user',archive)
+  c=sqlite3.connect(self.target/'data/open_ai_canvas.db');self.assertEqual(c.execute('SELECT count(DISTINCT upload_key) FROM resources').fetchone()[0],2);c.close()
+ def test_imported_storage_paths_do_not_pull_original_skill_versions(self):
+  c=sqlite3.connect(self.local/'data/open_ai_canvas.db');c.executescript('CREATE TABLE skills(id TEXT PRIMARY KEY,user_id TEXT);CREATE TABLE skill_versions(id TEXT PRIMARY KEY,skill_id TEXT,package_key TEXT);')
+  c.execute("INSERT INTO skills VALUES('original-skill-123456789','user-source-12345')");c.execute("INSERT INTO skill_versions VALUES('old-version-123456789','original-skill-123456789','not-present.zip')")
+  c.execute('UPDATE canvas_projects SET payload_json=? WHERE id=?',(json.dumps({'resourceId':'resource-123456789','filePath':'imports/batch/old-version-123456789.zip'}),'canvas-123456789'));c.commit();c.close()
+  archive=self.root/'path-scope.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive,'project-123456789')
+  with zipfile.ZipFile(archive) as z:self.assertEqual(json.loads(z.read('project-data.json'))['tables']['skill_versions'],[])
  def test_round_trip_twice_preserves_content_and_remaps(self):
   archive=self.root/'project.zip';bundle.export_bundle(self.local,'user-source-12345',self.front,archive)
   with zipfile.ZipFile(archive) as z:

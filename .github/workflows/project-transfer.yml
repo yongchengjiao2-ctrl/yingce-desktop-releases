@@ -1,0 +1,20 @@
+name: Project export and import regression
+on:
+  push:
+    branches: [main]
+    paths: ['workspace/skill-agent/project_bundle.py', 'workspace/skill-agent/build-release.py', 'workspace/skill-agent/tests/test_project_bundle.py', '.github/workflows/project-transfer.yml']
+  pull_request:
+    paths: ['workspace/skill-agent/project_bundle.py', 'workspace/skill-agent/build-release.py', 'workspace/skill-agent/tests/test_project_bundle.py', '.github/workflows/project-transfer.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transfer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify package compatibility, rollback, repeated imports and content preservation
+        run: python -m unittest discover -s workspace/skill-agent/tests -p test_project_bundle.py -v
