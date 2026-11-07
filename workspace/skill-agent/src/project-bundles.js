@@ -5,7 +5,7 @@ import {_ as canvasStore,d as initCanvas} from './use-asset-store-yGdco-1O.js';
 import {flushCreationConversations,filterDeletedConversations} from './creation-history-storage.js';
 import {projectFrontend,projectIdFromCard} from './project-bundle-core.js';
 initRequest();initStorage();initScope();initCanvas();
-const keys=['yingce-skill-agent-v1','creation-conversations-v1','yingce-chapter-outputs-v1','yingce-confirmed-materials-v1'];
+const keys=['yingce-skill-agent-v1','creation-conversations-v1','yingce-chapter-outputs-v1','yingce-confirmed-materials-v1', 'yingce-drama-workshop-v1'];
 async function call(action,data){
  const r=await api.raw({url:'/desktop/project-bundles/'+action,baseURL:'',method:data===undefined?'GET':'POST',data,timeout:0,validateStatus:()=>true});
  if(r.status!==200)throw Error(r.data?.error||'此功能需要重新启动影策后使用');return r.data;

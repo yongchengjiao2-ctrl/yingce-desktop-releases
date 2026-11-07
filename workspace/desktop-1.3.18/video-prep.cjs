@@ -16,7 +16,15 @@ function createHandler({local, runtime, resources}) {
     res.writeHead(status, {'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store'});
     res.end(JSON.stringify(value));
   };
-  const ready=filename=>{if(!fs.existsSync(filename))return false;const data=JSON.parse(fs.readFileSync(filename,'utf8'));return data.evidence_version===2&&Array.isArray(data.voice_pitch);};
+  function ready(filename) {
+    try {
+      const data=JSON.parse(fs.readFileSync(filename,'utf8'));
+      return data?.evidence_version===2&&Array.isArray(data.voice_pitch);
+    } catch(error) {
+      if(error.code==='ENOENT'||error instanceof SyntaxError)return false;
+      throw error;
+    }
+  }
   async function run(id, folder, filename) {
     jobs.set(id, {stage:'等待原音处理', progress:0});
     sequence = sequence.catch(()=>{}).then(async () => {
@@ -32,12 +40,17 @@ function createHandler({local, runtime, resources}) {
           jobs.set(id,{stage:'失败',error:error.message,progress:0});resolve();
         });
         child.on('exit', code => {
-          if(code)jobs.set(id,{stage:'失败',error:'本地转写未完成。'+diagnostic.slice(-600),progress:0});
-          else jobs.set(id,{stage:'已准备',progress:100});
+          try {
+            if(code!==0||!ready(path.join(folder,'result.json'))){
+              jobs.set(id,{stage:'失败',error:'本地转写未完成。'+diagnostic.slice(-600),progress:0});
+            } else jobs.set(id,{stage:'已准备',progress:100});
+          } catch(error) {
+            jobs.set(id,{stage:'失败',error:error.message,progress:0});
+          }
           resolve();
         });
       });
-    });
+    }).catch(error=>{jobs.set(id,{stage:'失败',error:error.message,progress:0});});
   }
   return async function handle(req,res) {
     try {
@@ -117,7 +130,11 @@ function createHandler({local, runtime, resources}) {
         const state=path.join(folder,'progress.json');
         let progress=jobs.get(match[1]);
         if(progress?.error){respond(res,422,progress);return;}
-        if(fs.existsSync(state))progress=JSON.parse(await fsp.readFile(state,'utf8'));
+        try {
+          if(fs.existsSync(state))progress=JSON.parse(await fsp.readFile(state,'utf8'));
+        } catch(error) {
+          if(!(error instanceof SyntaxError)&&error.code!=='ENOENT')throw error;
+        }
         if(!progress){respond(res,404,{error:'未找到原音处理任务，请重试'});return;}
         respond(res,progress.error?422:202,progress);return;
       }

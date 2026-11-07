@@ -104,12 +104,16 @@ function renderModels() {
   modelPicker.value = selected;
   nativeControls?.update();
 }
+function activeWorkshopDraft(session=current()){
+  return workshopDraft?.sessionId===session?.id&&input?.dataset?.workshopStep===workshopDraft?.workshopStep?workshopDraft:null;
+}
 function renderChips() {
   if (!chips) return; chips.replaceChildren();
   const s = current(); if (!s) return;
-  const trigger=panel?.querySelector('[data-reference]');if(trigger){const count=(s.references||[]).length;trigger.setAttribute('aria-pressed',String(count>0));trigger.setAttribute('aria-description',`已选 ${count} 项参考内容`);const label=trigger.querySelector('.ysa-control-label');if(label)label.textContent=count?`引用 · ${count}`:'引用';}
+  const draft=activeWorkshopDraft(s),references=draft?.references??s.references??[];
+  const trigger=panel?.querySelector('[data-reference]');if(trigger){trigger.disabled=Boolean(draft)||busy;const count=references.length;trigger.setAttribute('aria-pressed',String(count>0));trigger.setAttribute('aria-description',`已选 ${count} 项参考内容`);const label=trigger.querySelector('.ysa-control-label');if(label)label.textContent=count?`引用 · ${count}`:'引用';}
   for (const id of nativeControls ? [] : s.skillIds || []) button(chips, '技能：' + (skills.find(x => x.skillId === id)?.skillName || id) + ' ×', async () => { if (busy) return; s.skillIds = s.skillIds.filter(x => x !== id); await persist(); renderSkills(); renderChips(); }, 'ysa-chip');
-  for(const r of s.references||[]){const chip=el('span',null,chips,'ysa-reference-chip');const preview=button(chip,'',()=>{const d=dialog('引用内容 · '+r.label);el('pre',r.text,d.body);},'ysa-reference-preview');preview.append(composerIcon('file'));el('span',r.label,preview);preview.setAttribute('aria-label','查看引用：'+r.label);const remove=button(chip,'',async()=>{if(busy)return;s.references=s.references.filter(x=>x.id!==r.id);await persist();renderChips();},'ysa-reference-remove');remove.append(composerIcon('close'));remove.setAttribute('aria-label','移除引用：'+r.label);remove.dataset.ysaTip='移除引用';remove.disabled=busy;}
+  for(const r of references){const chip=el('span',null,chips,'ysa-reference-chip');const preview=button(chip,'',()=>{const d=dialog('引用内容 · '+r.label);el('pre',r.text,d.body);},'ysa-reference-preview');preview.append(composerIcon('file'));el('span',r.label,preview);preview.setAttribute('aria-label','查看引用：'+r.label);if(draft)continue;const remove=button(chip,'',async()=>{if(busy)return;s.references=s.references.filter(x=>x.id!==r.id);await persist();renderChips();},'ysa-reference-remove');remove.append(composerIcon('close'));remove.setAttribute('aria-label','移除引用：'+r.label);remove.dataset.ysaTip='移除引用';remove.disabled=busy;}
 
 }
 function render() {
@@ -130,12 +134,26 @@ function render() {
       const key=next.status+'|'+Boolean(next.content)+'|'+Boolean(next.provenance);
       if(key===signature)return;signature=key;meta.replaceChildren();
       if(next.role!=='assistant')return;
+      const chapterReferences=next.provenance?.references?.filter(ref=>ref.id?.startsWith('workshop-chapter:'))||[];
+      if(chapterReferences.length){
+        const cited=el('details',null,meta);
+        el('summary','本轮引用 '+chapterReferences.length+' 个所选章节',cited);
+        const chapters=el('ul',null,cited);
+        for(const ref of chapterReferences)el('li',ref.label,chapters);
+      }
       if(next.provenance){const details=el('details',null,meta);el('summary','本轮技能与引用',details);el('pre',JSON.stringify(next.provenance,null,2),details);}
       const row=el('div',null,meta,'ysa-actions');
       button(row,'复制',async()=>{await navigator.clipboard.writeText(currentMessage.content);note('已复制');});
       if(next.content&&next.status!=='running'){
         button(row,'保存到章节',()=>showChapterSave({text:currentMessage.content,title:s.title,conversationId:s.id,messageId:next.id,provenance:next.provenance}));
         button(row,'下载内容',()=>downloadOutput(currentMessage.content,s.title));
+        if(['succeeded','done'].includes(next.status)){
+          button(row,'采用到工坊',()=>{
+            const workshop=panel.querySelector('.dw-workshop');
+            if(!workshop||s.projectId!==route().projectId)throw Error('请先打开本项目的剧作工坊');
+            workshop.dispatchEvent(new CustomEvent('yingce-workshop-adopt',{detail:{text:currentMessage.content,step:currentMessage.workshopStep}}));
+          },'dw-adopt-reply');
+        }
         if(['succeeded','done'].includes(next.status))button(row,'确认采用',()=>editMaterials({content:currentMessage.content,sourceMessageId:next.id,sourceConversationId:s.id}));
       }
       if(next.status!=='running')button(row,'重新生成',()=>send(next.replyTo,next.id));
@@ -150,7 +168,11 @@ function render() {
   panel.querySelector('[data-send]').disabled = busy; panel.querySelector('[data-stop]').disabled = !busy;
   panel.querySelector('[data-send]').hidden = busy;panel.querySelector('[data-stop]').hidden = !busy;
   input.disabled = busy; sessionPicker.disabled = busy; modelPicker.disabled = busy;
-  const draftToggle=panel.querySelector('[data-working-draft]');if(draftToggle){draftToggle.disabled=busy;draftToggle.setAttribute('aria-pressed',String(current()?.includeWorkingDraft!==false));}
+  const draftToggle=panel.querySelector('[data-working-draft]');if(draftToggle){const draft=activeWorkshopDraft();
+    draftToggle.disabled=busy||Boolean(draft);
+    draftToggle.setAttribute('aria-pressed',String(!draft&&current()?.includeWorkingDraft!==false));
+    const label=draftToggle.querySelector('.ysa-control-label');
+    if(label)label.textContent=draft?'最近回复 · 不带入':'最近回复';}
   composerBehavior?.refresh();
   if(!latestAnchor)list.scrollTop=preservedScroll;
 }
@@ -221,31 +243,36 @@ async function openHistory() {
     if (!rows.children.length) el('p', '没有匹配的聊天记录', rows);
   }; search.oninput = fill; fill();
 }
-async function send(replyTo,retryMessageId) {
+let workshopDraft;
+async function send(replyTo,retryMessageId,workshopRequest) {
   if (busy) return;
   const s = current(), original = replyTo && s.messages.find(m => m.id === replyTo);
-  const prompt = original ? original.content : input.value.trim(); if (!prompt) return;
+  const prompt = original ? original.content : workshopRequest?.prompt ?? input.value.trim(); if (!prompt) return;
   const selectedModel = s.model || modelPicker.value; if (!selectedModel) throw Error('请选择一个已配置协议的文字模型');
   const selected = s.skillIds || []; if (selected.some(id => !skills.some(x => x.skillId === id))) throw Error('已选技能不可用，请重新选择技能');
+  const draft=!original&&workshopDraft?.sessionId===s.id&&input.dataset?.workshopStep===workshopDraft?.workshopStep?workshopDraft:null;
+  const chapterReferences=original?.workshopReferences??workshopRequest?.references??draft?.references;
+  const references=chapterReferences??s.references??[];
   const past = original ? s.messages.slice(0, s.messages.indexOf(original)) : s.messages;
   let context;
   // Load skill files before creating a model task. Missing dependencies must stop here.
   busy = true; render(); note('正在加载本轮技能…');
   let prepared;
-  try { context=projectContext(await knowledgeStore().list(),s.projectId||route().projectId,s.references||[],past,prompt,s.includeWorkingDraft!==false);prepared = await skillRuntime.prepare({profile:'creation', prompt:context.prompt, skills, selectedSkillIds:selected}); }
+  try { context=projectContext(await knowledgeStore().list(),s.projectId||route().projectId,references,past,prompt,!chapterReferences&&s.includeWorkingDraft!==false);prepared = await skillRuntime.prepare({profile:'creation', prompt:context.prompt, skills, selectedSkillIds:selected}); }
   catch (e) { busy = false; render(); throw e; }
   const config = {...configStore.getState().config, model:selectedModel, textModel:selectedModel, taskWorkflowProvider:'model'};
   latestAnchor=null;
-  const user = {id:uid(),role:'user',content:prompt,status:'succeeded',createdAt:now()};
+  const user = {id:uid(),role:'user',content:prompt,status:'succeeded',createdAt:now(),workshopStep:workshopRequest?.workshopStep ?? input.dataset?.workshopStep};
+  if(chapterReferences)user.workshopReferences=chapterReferences;
   if (!original) s.messages.push(user);
-  const answer = {id:uid(),role:'assistant',content:'',replyTo:original?.id || user.id,status:'running',createdAt:now(),model:selectedModel,provenance:{...prepared.metadata,references:(s.references || []).map(r => ({id:r.id,label:r.label,capturedAt:r.capturedAt}))}};
+  const answer = {id:uid(),role:'assistant',content:'',workshopStep:(original||user).workshopStep,replyTo:original?.id || user.id,status:'running',createdAt:now(),model:selectedModel,provenance:{...prepared.metadata,references:references.map(r => ({id:r.id,label:r.label,capturedAt:r.capturedAt}))}};
   answer.provenance.contextWindow={includedTurns:context.includedTurns||0,omittedTurns:context.omittedTurns||0};
   answer.provenance.confirmedMaterials=context.materials;answer.provenance.workingDraftId=context.workingDraftId;
   if(retryMessageId)s.messages=s.messages.filter(m=>m.id!==retryMessageId||m.role!=='assistant');
   s.messages.push(answer); s.model = selectedModel; if (s.title === '新对话') s.title = prompt.slice(0, 28); s.updatedAt = now();
   busy = true; controller = new AbortController(); lastTask = null; let checkpoint;
   try {
-    await persist(); input.value = ''; input.blur(); render(); note(`正在调用模型：已确认资料 ${context.materials.length} 项，引用 ${context.referenceCount} 项，工作稿 ${context.workingDraftId?1:0} 份；历史聊天不自动发送。`);
+    await persist(); if(!workshopRequest){input.value = ''; if(input.dataset)delete input.dataset.workshopStep; input.blur();} render(); note(`正在调用模型：已确认资料 ${context.materials.length} 项，引用 ${context.referenceCount} 项，工作稿 ${context.workingDraftId?1:0} 份；历史聊天不自动发送。`);
     const result = await generate({projectId:s.projectId || undefined,mode:'text',prompt:prepared.prompt,config,textHistory:context.history,signal:controller.signal,streamText:true,enableThinking:false,clientOperationId:answer.id,metadata:{source:'skill-agent',conversationId:s.id,messageId:answer.id,...prepared.metadata},onTaskUpdate: task => { lastTask = task; answer.taskId = task.id; },onTextDelta: text => { answer.content = text; messageViews.get(answer.id)?.update(answer); if (!checkpoint) checkpoint = setTimeout(()=>{checkpoint=null;persist().catch(showError);},1000); }});
     if (!result.text?.trim()) throw Error('模型没有返回正文'); answer.content = result.text; answer.status = 'succeeded'; note('生成完成，已保存到当前会话');
   } catch (e) { answer.status = controller.signal.aborted ? 'stopped' : 'failed'; answer.error = e.message; note(answer.status === 'stopped' ? '已停止，已收到的内容保留' : e.message); }
@@ -347,7 +374,7 @@ async function openAgent() {
   modelPicker = el('select',null,tools); modelPicker.setAttribute('aria-label','Agent 文字模型'); modelPicker.onchange = async () => { current().model = modelPicker.value; await persist(); };
   const pickerHost=el('div',null,tools,'ysa-picker-host');const referencesButton=composeButton(button(tools,'',openReferences,'ysa-reference-trigger'),'reference','引用');referencesButton.dataset.reference='';referencesButton.setAttribute('aria-expanded','false');
   const libraryButton=composeButton(button(tools,'',()=>editMaterials()),'file','资料库');libraryButton.dataset.library='';libraryButton.setAttribute('aria-expanded','false');
-  const contextButton=composeButton(button(tools,'',()=>{assertMaterialAccess();const openedScope=scope,projectId=materialProject();return openContextPreview({store:knowledgeStore(),projectId,session:current(),prompt:input.value,dialog:title=>dialog(title,contextButton),el,assertActive:()=>{if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新查看上下文');}});}), 'context','上下文');contextButton.dataset.context='';contextButton.setAttribute('aria-expanded','false');contextButton.setAttribute('aria-label','本轮上下文');
+  const contextButton=composeButton(button(tools,'',()=>{assertMaterialAccess();const openedScope=scope,projectId=materialProject();return openContextPreview({store:knowledgeStore(),projectId,session:activeWorkshopDraft()?{...current(),references:activeWorkshopDraft().references,includeWorkingDraft:false}:current(),prompt:input.value,dialog:title=>dialog(title,contextButton),el,assertActive:()=>{if(scope!==openedScope||materialProject()!==projectId)throw Error('项目或账号已切换，请重新查看上下文');}});}), 'context','上下文');contextButton.dataset.context='';contextButton.setAttribute('aria-expanded','false');contextButton.setAttribute('aria-label','本轮上下文');
   const draftButton=composeButton(button(tools,'',async()=>{assertMaterialAccess();const s=current(),previous=s.includeWorkingDraft;s.includeWorkingDraft=s.includeWorkingDraft===false;try{await persist();}catch(error){s.includeWorkingDraft=previous;throw error;}draftButton.setAttribute('aria-pressed',String(s.includeWorkingDraft));}),'history','最近回复');draftButton.dataset.workingDraft='';draftButton.setAttribute('aria-label','带入最近回复');draftButton.setAttribute('aria-pressed',String(current()?.includeWorkingDraft!==false));draftButton.dataset.ysaTip='把最近一次回复作为未确认工作稿带入，可点击关闭';
   const details = el('details',null,compose); el('summary','选择技能',details); skillPicker = el('div',null,details,'ysa-skills');
   const actions = el('div',null,tools,'ysa-send-actions'); composeButton(button(actions,'',() => send(), 'ysa-primary'),'send','发送').dataset.send = ''; composeButton(button(actions,'',stop),'stop','停止').dataset.stop = '';
@@ -372,14 +399,15 @@ function renameInline(){
   let done=false;const finish=async(save)=>{if(done)return;done=true;try{if(save&&field.value.trim()){session.title=field.value.trim();session.updatedAt=now();await persist();}}catch(e){session.title=old;showError(e);}finally{field.remove();sessionTitle.hidden=false;editingTitle=false;render();}};
   field.onblur=()=>finish(true);field.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();finish(true);}else if(e.key==='Escape'){e.preventDefault();finish(false);}};field.focus();field.select();
 }
-function syncAgentLauncher(){const large=false;if(panel&&!backdrop){backdrop=el('div',null,workspaceRoot(),'ysa-agent-backdrop');backdrop.setAttribute('aria-hidden','true');}if(backdrop&&backdrop.hidden===large)backdrop.hidden=!large;const launch=document.getElementById('yingce-skill-agent-launch');if(!launch)return;const hide=!/^\/projects\/[^/]+\/chapters(?:\/|$)/.test(location.pathname)||!!(panel&&!panel.hidden&&parseFloat(panel.style.width)>=320&&parseFloat(panel.style.height)>=240&&(panel.classList.contains('ysa-expanded')||panel.classList.contains('ysa-fullscreen')));launch.hidden=hide;
+function syncAgentLauncher(){const large=false;if(panel&&!backdrop){backdrop=el('div',null,workspaceRoot(),'ysa-agent-backdrop');backdrop.setAttribute('aria-hidden','true');}if(backdrop&&backdrop.hidden===large)backdrop.hidden=!large;const launch=document.getElementById('yingce-skill-agent-launch');if(!launch)return;const hide=!/^\/projects\/[^/]+\/chapters(?:\/|$)/.test(location.pathname)||!!(panel&&!panel.hidden&&(panel.classList.contains('ysa-workshop')||(parseFloat(panel.style.width)>=320&&parseFloat(panel.style.height)>=240&&(panel.classList.contains('ysa-expanded')||panel.classList.contains('ysa-fullscreen')))));launch.hidden=hide;
   launch.classList.toggle('ysa-launch-minimized',minimized);if(launch.dataset.mode!==(minimized?'minimized':'normal')){if(minimized)iconButton(launch,'agent','恢复 Agent 助手');else{launch.replaceChildren();launch.textContent='✧ Agent 助手';launch.dataset.ysaTip='打开或关闭 Agent 助手';launch.setAttribute('aria-label','Agent 助手');}launch.dataset.mode=minimized?'minimized':'normal';}}
-function toggleFullscreen(){if(!floating)return;const full=floating.setFullscreen(!floating.isFullscreen());iconButton(fullscreenButton,full?'restore':'fullscreen',full?'退出全屏':'全屏');fullscreenButton.setAttribute('aria-pressed',String(full));syncAgentLauncher();}
+function toggleFullscreen(){if(!floating)return;const full=floating.setFullscreen(!floating.isFullscreen());panel.classList.toggle('ysa-workshop-docked',!full&&!panel.classList.contains('ysa-expanded')&&document.body.classList.contains('dw-open'));iconButton(fullscreenButton,full?'restore':'fullscreen',full?'退出全屏':'全屏');fullscreenButton.setAttribute('aria-pressed',String(full));syncAgentLauncher();}
 
 function toggleExpanded() {
   if(!panel)return;
   if(floating?.isFullscreen()){floating.setFullscreen(false);iconButton(fullscreenButton,'fullscreen','全屏');fullscreenButton.setAttribute('aria-pressed','false');}
   const expanded=panel.classList.toggle('ysa-expanded');
+  panel.classList.toggle('ysa-workshop-docked',!expanded&&document.body.classList.contains('dw-open'));
   floating?.setMode(expanded);
   iconButton(expandButton,expanded?'restore':'expand',(expanded?'还原':'放大')+' Agent 助手');expandButton.setAttribute('aria-pressed',String(expanded));syncAgentLauncher();
 }
@@ -403,6 +431,43 @@ window.addEventListener('yingce-before-project-export',event=>event.detail.promi
 window.addEventListener('yingce-project-history-imported',()=>{load().then(()=>{render();refreshSkills().catch(showError);}).catch(showError);});
 window.addEventListener('canvas-skills-changed',() => refreshSkills().catch(showError));
 configStore.subscribe(renderModels);
+window.addEventListener('yingce-workshop-agent',event=>{
+  const d=event.detail||{};
+  if(d.mount)event.preventDefault();
+  (async()=>{
+    if(d.restoreFrame){if(d.hide&&panel){panel.hidden=true;syncAgentLauncher();}if(floating&&!floating.isFullscreen())floating.setMode(panel.classList.contains('ysa-expanded'));return;}
+    if(d.dock===false){panel?.classList.remove('ysa-workshop-docked');return;}
+    if(d.projectId&&d.projectId!==route().projectId)throw Error('项目已切换');
+    if(!panel||panel.hidden)await openAgent();
+    if(d.mount){
+      if(floating?.isFullscreen())toggleFullscreen();
+      if(current()?.projectId!==route().projectId)await createSession();
+      if(!panel.classList.contains('ysa-expanded'))toggleExpanded();
+      d.mount(panel);
+      if(panel.classList.contains('ysa-workshop'))syncAgentLauncher();
+      latestAnchor=current()?.messages.at(-1)?.id;
+      requestAnimationFrame(positionLatest);
+      return;
+    }
+    if(busy&&d.prompt)throw Error('请先等待或停止 Agent 当前回复');
+    if(d.prompt){
+      if(current()?.projectId!==route().projectId)await createSession();
+      if(d.workshopStep){
+        current().skillIds=[...(d.skillIds||[])];
+        current().model=d.model||current().model;
+        if(!d.autoSend){
+          input.dataset.workshopStep=d.workshopStep;
+          workshopDraft={sessionId:currentId,workshopStep:d.workshopStep,references:d.references};
+        }
+        render();
+      }
+      if(d.autoSend){await send(undefined,undefined,d);return;}
+      input.value=d.prompt;composerBehavior?.refresh();
+    }
+    if(d.expanded){panel.classList.remove('ysa-workshop-docked');if(!panel.classList.contains('ysa-expanded'))toggleExpanded();input.focus();}
+    else if(d.dock){if(floating?.isFullscreen())toggleFullscreen();if(panel.classList.contains('ysa-expanded'))toggleExpanded();panel.classList.add('ysa-workshop-docked');}
+  })().catch(error=>{d.error?.(error);showError(error);});
+});
 window.addEventListener('storage',event => { if (event.key === 'yingce:active-user-scope') location.reload(); });
 const css = document.createElement('link'); css.rel='stylesheet';css.href=new URL('./skill-agent.css',import.meta.url).href;document.head.append(css);
 await load();

@@ -77,6 +77,8 @@ if 'CreationOutputActions as YSACreationOutputActions' not in creation:
 if 'Pi as YingceConversationMessage' not in creation:
     creation += '\nexport{Pi as YingceConversationMessage};\n'
 index = INDEX.read_text(encoding='utf-8')
+if '/assets/drama-workshop.js' not in index:
+    index = index.replace('</body>','<script type="module" src="/assets/drama-workshop.js"></script>\n</body>')
 if '/assets/project-bundles.js' not in index:
     index = index.replace('</body>','<script type="module" src="/assets/project-bundles.js"></script>\n</body>')
 if '/assets/skill-agent.js' not in index:

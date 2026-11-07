@@ -86,11 +86,17 @@ def prepare(video, out, ffmpeg, model_path):
     spec=importlib.util.spec_from_file_location('video_evidence',entry)
     evidence=importlib.util.module_from_spec(spec)
     spec.loader.exec_module(evidence)
-    base_path=out/'base-result.json'
-    old=out/'result.json'
-    if base_path.exists():base=json.loads(base_path.read_text(encoding='utf-8'))
-    elif old.exists():base=json.loads(old.read_text(encoding='utf-8'))
-    else:base=prepare_base(video,out,ffmpeg,model_path)
+    base = None
+    for cached in (out/'base-result.json', out/'result.json'):
+        try:
+            value = json.loads(cached.read_text(encoding='utf-8'))
+        except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if isinstance(value, dict) and value.get('segments') and (out/'audio.wav').is_file():
+            base = value
+            break
+    if base is None:
+        base = prepare_base(video, out, ffmpeg, model_path)
     return evidence.enrich(video,out,ffmpeg,model_path,base)
 
 if __name__ == "__main__":

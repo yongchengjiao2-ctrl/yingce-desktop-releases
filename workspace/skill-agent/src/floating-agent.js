@@ -9,13 +9,18 @@ export function floatingAgent(panel,header,key){
   try{const saved=JSON.parse(localStorage.getItem(key)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))frames=saved;}catch{}
   const viewport=()=>({width:window.innerWidth,height:window.innerHeight});
   const read=()=>{const r=panel.getBoundingClientRect();return{left:r.left,top:r.top,width:r.width,height:r.height};};
-  const apply=value=>{const v=viewport();if(v.width<320||v.height<240)return;const f=constrainFrame(value,v);for(const [k,v] of Object.entries(f))panel.style.setProperty(k,v+'px','important');panel.style.setProperty('right','auto','important');panel.style.setProperty('bottom','auto','important');frames[mode]=f;return f;};
+  const apply=value=>{
+    if(panel.classList.contains('ysa-workshop')){
+      for(const property of ['left','right','top','bottom','width','height'])panel.style.removeProperty(property);
+      return;
+    }
+    const v=viewport();if(v.width<320||v.height<240)return;const f=constrainFrame(value,v);for(const [k,v] of Object.entries(f))panel.style.setProperty(k,v+'px','important');panel.style.setProperty('right','auto','important');panel.style.setProperty('bottom','auto','important');frames[mode]=f;return f;};
   const save=()=>{try{localStorage.setItem(key,JSON.stringify(frames));}catch{}};
   const setMode=expanded=>{mode=expanded?'expanded':'compact';const v=viewport();if(v.width<320||v.height<240)return;const width=expanded?Math.min(1320,v.width-64):Math.min(480,v.width-32),height=expanded?Math.min(880,v.height-64):Math.min(740,v.height-128),saved=frames[mode];const valid=saved&&[saved.left,saved.top,saved.width,saved.height].every(Number.isFinite)&&saved.width>=320&&saved.height>=240;apply(valid?saved:{left:(v.width-width)/2,top:(v.height-height)/2,width,height});save();};
   const fillScreen=()=>{for(const [k,v]of Object.entries({left:0,top:0,width:window.innerWidth,height:window.innerHeight}))panel.style.setProperty(k,v+'px','important');panel.style.setProperty('right','auto','important');panel.style.setProperty('bottom','auto','important');};
   const setFullscreen=value=>{fullscreen=!!value;panel.classList.toggle('ysa-fullscreen',fullscreen);if(fullscreen)fillScreen();else setMode(mode==='expanded');return fullscreen;};
   header.removeAttribute('title');header.dataset.ysaTip='拖动顶部空白处移动窗口';
-  header.onpointerdown=e=>{if(fullscreen||e.button!==0||e.target.closest('button,input,select,a'))return;const f=read();drag={id:e.pointerId,x:e.clientX,y:e.clientY,frame:f};header.setPointerCapture?.(e.pointerId);panel.classList.add('ysa-dragging');e.preventDefault();};
+  header.onpointerdown=e=>{if(fullscreen||panel.classList.contains('ysa-workshop')||e.button!==0||e.target.closest('button,input,select,a'))return;const f=read();drag={id:e.pointerId,x:e.clientX,y:e.clientY,frame:f};header.setPointerCapture?.(e.pointerId);panel.classList.add('ysa-dragging');e.preventDefault();};
   header.onpointermove=e=>{if(!drag||drag.id!==e.pointerId)return;apply({...drag.frame,left:drag.frame.left+e.clientX-drag.x,top:drag.frame.top+e.clientY-drag.y});};
   const end=e=>{if(!drag||drag.id!==e.pointerId)return;drag=null;header.releasePointerCapture?.(e.pointerId);panel.classList.remove('ysa-dragging');save();};header.onpointerup=end;header.onpointercancel=end;header.onlostpointercapture=()=>{drag=null;panel.classList.remove('ysa-dragging');};
   window.addEventListener('resize',()=>{if(panel.isConnected){if(fullscreen)fillScreen();else{apply(frames[mode]||read());save();}}});
